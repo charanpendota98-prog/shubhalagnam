@@ -3,7 +3,7 @@
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 /** Public strip for admin-curated featured profiles, not compatibility matches. */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { CASTE_TELUGU, DISTRICT_TELUGU } from "@/lib/telugu-data";
 

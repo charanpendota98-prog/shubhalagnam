@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
@@ -12,7 +13,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`payout con
   if(p.endsWith('/payouts'))return route.fulfill({json:{success:true,wallet:150,pending:0,paid_out:0,payouts:[]}});
   return route.fulfill({json:{success:true,campaigns:[],leaderboard:[],you:null}});
  });
- await page.goto('/referral?id=REVIEW170');
+ await page.goto(localeHref('/referral?id=REVIEW170',lang));
  const group=page.getByRole('group',{name:lang==='en'?'Payout overview':'చెల్లింపు వివరాలు',exact:true});
  await expect(group).toBeVisible();expect(await group.innerText()).not.toMatch(/\p{Extended_Pictographic}/u);
  await expect(group.locator('svg[aria-hidden="true"]')).toHaveCount(5);

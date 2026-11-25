@@ -51,12 +51,12 @@ class CopyTruthTests(unittest.TestCase):
 
     def test_spotlight_and_plan_copy_has_no_unsupported_popularity_claim(self) -> None:
         paths = (
-            ROOT / "frontend/src/app/spotlight/page-client.tsx",
-            ROOT / "frontend/src/app/page.tsx",
-            ROOT / "frontend/src/app/pricing/page-client.tsx",
-            ROOT / "frontend/src/app/requests/page-client.tsx",
-            ROOT / "frontend/src/app/vendors/page-client.tsx",
-            ROOT / "frontend/src/app/bureau/page-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/spotlight/page-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/home-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/pricing/page-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/requests/page-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/vendors/page-client.tsx",
+            ROOT / "frontend/src/app/(telugu)/bureau/page-client.tsx",
         )
         forbidden = ("most popular", "best seller", "best-seller", "best value", "fastest growing")
         for path in paths:

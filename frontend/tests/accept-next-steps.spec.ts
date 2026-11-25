@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
@@ -13,14 +14,14 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])for(const withAc
   if(path==='/api/interest/sent/UI_ONLY')return r.fulfill({json:{tsap_id:'UI_ONLY',pending:withAccepted?0:1,accepted:withAccepted?1:0,sent:[{...row(status,'from'),contact:withAccepted?'90••••••01':undefined}]}});
   return r.fulfill({json:{success:true,credits:3,received:[],sent:[],saved:[],templates:[],plans:[]}})
  });
- await page.goto('/requests');
+ await page.goto(localeHref('/requests',lang));
  const card=page.getByTestId('accepted-next-steps');
  for(const tab of [lang==='en'?/Received|Inbox/:/వచ్చిన/,lang==='en'?/Sent/:/పంపిన/]){
   await page.getByRole('button',{name:tab}).first().click();
   if(withAccepted){
    await expect(card).toBeVisible();await expect(card.getByRole('heading')).toHaveText(lang==='en'?'Next steps after acceptance':'అంగీకారం తర్వాత తదుపరి దశలు');
    await expect(card.getByRole('listitem')).toHaveCount(3);
-   await expect(card.getByRole('link')).toHaveAttribute('href','/safety');
+   await expect(card.getByRole('link')).toHaveAttribute('href',localeHref("/safety",lang));
    await expect(card.getByText(/\d{6,}/)).toHaveCount(0);
    if(lang==='te')await expect(card).not.toContainText(/Never send|Report anyone/);
    const ax=await new AxeBuilder({page}).include('[data-testid="accepted-next-steps"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();

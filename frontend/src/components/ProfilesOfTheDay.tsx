@@ -3,7 +3,7 @@
 
 import { apiDisplayMessage, readApiJson } from "@/lib/api";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { useDuo } from "@/lib/duo";
 import Reveal from "@/components/Reveal";

@@ -47,3 +47,14 @@ test("member sessions prefer HttpOnly cookies and do not persist bearer tokens",
   assert.match(source, /credentials: "same-origin"/);
   assert.match(source, /headers\["X-CSRF-Token"\]/);
 });
+
+test("API message language follows the active document, not a stale saved preference", () => {
+  const start = source.indexOf('function selectedLanguage()');
+  const body = source.slice(source.indexOf('{', start) + 1, source.indexOf('\n}', start));
+  const select = new Function('window', 'document', 'localStorage', body);
+  for (const active of ['te', 'en']) {
+    const stale = active === 'te' ? 'en' : 'te';
+    assert.equal(select({}, {documentElement:{dataset:{lang:active}}}, {getItem:()=>stale}), active);
+  }
+  assert.equal(select(undefined, {}, {}), 'te');
+});

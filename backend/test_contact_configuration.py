@@ -93,14 +93,14 @@ class FrontendContactConfigurationTests(unittest.TestCase):
         self.assertNotIn('legalName: "Manavivaha"', config)
 
     def test_contact_views_and_structured_data_suppress_empty_values(self):
-        privacy = self.read("frontend/src/app/privacy/page-client.tsx")
-        refund = self.read("frontend/src/app/refund/page-client.tsx")
-        terms = self.read("frontend/src/app/terms/page-client.tsx")
+        privacy = self.read("frontend/src/app/(telugu)/privacy/page-client.tsx")
+        refund = self.read("frontend/src/app/(telugu)/refund/page-client.tsx")
+        terms = self.read("frontend/src/app/(telugu)/terms/page-client.tsx")
         footer = self.read("frontend/src/components/SiteFooter.tsx")
-        home = self.read("frontend/src/app/page.tsx")
+        home = self.read("frontend/src/app/(telugu)/home-client.tsx")
         # Site-wide Organization/WebSite structured data lives in the root layout now;
         # the homepage emits only its own FAQ graph.
-        layout = self.read("frontend/src/app/layout.tsx")
+        layout = self.read("frontend/src/components/StaticLocaleShell.tsx")
         self.assertIn("POLICY_SUPPORT_EMAIL ?", privacy)
         self.assertIn("SITE_CONFIG.owner.location ?", privacy)
         self.assertIn("!POLICY_SUPPORT_EMAIL ?", privacy)
@@ -128,7 +128,7 @@ class FrontendContactConfigurationTests(unittest.TestCase):
     def test_visitor_analytics_are_pseudonymous_bounded_and_disclosed(self):
         growth = self.read("backend/growth.py")
         main = self.read("backend/main.py")
-        privacy = self.read("frontend/src/app/privacy/page-client.tsx")
+        privacy = self.read("frontend/src/app/(telugu)/privacy/page-client.tsx")
         track_route = main.split('@app.post("/api/track")', 1)[1].split(
             '@app.post("/api/leads/quick")', 1
         )[0]

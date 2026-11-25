@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { WhatsAppIcon } from "@/components/BrandIcons";
@@ -8,7 +8,7 @@ import { whatsappPhoneLink } from "@/lib/wa";
 
 /** Persistent link to support contact options. */
 export default function SupportWidget() {
-  const pathname = usePathname() || "/";
+  const pathname = useBasePathname() || "/";
   const { lang } = useLang();
   const te = lang === "te";
   const waNumber = SITE_CONFIG.supportWhatsapp;
@@ -41,7 +41,7 @@ export default function SupportWidget() {
       {/* Mobile: in-flow support strip. Sits in normal page flow above the
           footer, so it can never cover page content behind a floating layer. */}
       <div className="no-print border-t border-[#128C4A]/15 bg-gradient-to-r from-[#eefbf3] via-[#e2f7ea] to-[#eefbf3] px-4 py-3.5 lg:hidden">
-        <a
+        <LocaleAnchor
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -50,12 +50,12 @@ export default function SupportWidget() {
           className="focus-brand mx-auto flex min-h-12 max-w-md items-center justify-center gap-2.5 rounded-full border border-white/70 bg-gradient-to-r from-[#128C4A] via-[#20bd5a] to-[#0b7d46] px-4 py-2 text-white shadow-[0_10px_30px_rgba(18,140,74,.28)] transition active:scale-[.98]"
         >
           {pillBody}
-        </a>
+        </LocaleAnchor>
       </div>
       {/* Desktop: floating pill (screens are wide enough that it does not
           sit on top of reading columns). */}
       <aside className="fixed bottom-5 right-5 z-50 no-print hidden lg:block" aria-label={label}>
-        <a
+        <LocaleAnchor
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -64,8 +64,12 @@ export default function SupportWidget() {
           className="focus-brand group inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full border border-white/70 bg-gradient-to-r from-[#128C4A] via-[#20bd5a] to-[#0b7d46] px-4 py-2 text-white shadow-[0_10px_30px_rgba(18,140,74,.32)] transition hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_14px_34px_rgba(18,140,74,.42)] active:translate-y-0 active:scale-[.98]"
         >
           {pillBody}
-        </a>
+        </LocaleAnchor>
       </aside>
     </>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";
+
+import LocaleAnchor from "@/components/LocaleAnchor";

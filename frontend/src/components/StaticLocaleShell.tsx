@@ -1,0 +1,155 @@
+import type { Metadata, Viewport } from "next";
+import "@/app/globals.css";
+import LegacyLanguageHint from "@/components/LegacyLanguageHint";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
+import StickyCTA from "@/components/StickyCTA";
+import PWA from "@/components/PWA";
+import SupportWidget from "@/components/SupportWidget";
+import BackToTop from "@/components/BackToTop";
+import RouteFrame from "@/components/RouteFrame";
+import SiteAmbience from "@/components/SiteAmbience";
+import { LangProvider } from "@/lib/lang";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
+
+const SITE = process.env.SITE_URL || "https://manavivaha.in";
+
+/**
+ * Site-wide structured data (Organization + WebSite).
+ *
+ * Kept language-neutral on purpose: the layout is a server component and has
+ * no access to the visitor's language toggle, so both names are declared
+ * instead of guessing one. A contact point is emitted only when the owner has
+ * actually configured one — an unconfigured support channel is left out rather
+ * than filled with a placeholder.
+ */
+const SUPPORT_EMAIL = String(process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "").trim();
+const SUPPORT_PHONE = String(process.env.NEXT_PUBLIC_SUPPORT_PHONE || "").trim();
+const CONTACT_POINT =
+  SUPPORT_EMAIL || SUPPORT_PHONE
+    ? {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        availableLanguage: ["te", "en"],
+        areaServed: "IN",
+        ...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {}),
+        ...(SUPPORT_PHONE ? { telephone: SUPPORT_PHONE } : {}),
+      }
+    : null;
+
+const SITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE}/#org`,
+      name: "Mana Vivaha",
+      alternateName: "మన వివాహ",
+      url: SITE,
+      logo: `${SITE}/icons/icon-512.png`,
+      knowsLanguage: ["te", "en"],
+      ...(CONTACT_POINT ? { contactPoint: CONTACT_POINT } : {}),
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE}/#site`,
+      url: SITE,
+      name: "Mana Vivaha — Telugu Matrimony",
+      alternateName: "మన వివాహ — తెలుగు మ్యాట్రిమోనీ",
+      inLanguage: ["te-IN", "en-IN"],
+      publisher: { "@id": `${SITE}/#org` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: { "@type": "EntryPoint", urlTemplate: `${SITE}/search/{search_term_string}` },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
+
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
+  title: {
+    default: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
+    template: "%s | Mana Vivaha (మన వివాహ)",
+  },
+  description:
+    "Mana Vivaha (మన వివాహ) helps Telugu families in Telangana and Andhra Pradesh explore member-submitted matrimony profiles, community directories, and privacy controls. Verification status is shown individually; profile details and match outcomes are not guaranteed.",
+  keywords: [
+    "మన వివాహ", "Mana Vivaha", "Telugu matrimony", "TS matrimony", "AP matrimony", "Reddy matrimony", "Kamma matrimony",
+    "Kapu matrimony", "Brahmin matrimony", "Vysya matrimony", "Madiga matrimony", "Lambada matrimony", "Muslim matrimony Telugu",
+    "Christian matrimony Telugu", "second marriage Telugu", "₹99 matrimony", "manavivaha",
+    "Telangana brides", "Telangana grooms", "Andhra brides", "NRI Telugu matrimony",
+  ],
+  authors: [{ name: "మన వివాహ (Mana Vivaha)" }],
+  applicationName: "మన వివాహ",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: SITE,
+    siteName: "Mana Vivaha (మన వివాహ)",
+    title: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
+    description:
+      "Explore member-submitted matrimony profiles, selected community directories, and privacy controls across Telangana and Andhra Pradesh. Verification status is shown individually; profile details and outcomes are not guaranteed.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mana Vivaha (మన వివాహ) — Telugu Matrimony" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Telugu Matrimony & Matchmaking | Mana Vivaha (మన వివాహ)",
+    description: "Browse member-submitted profiles, community directories, and privacy controls across Telangana and Andhra Pradesh.",
+    images: ["/og-image.png"],
+  },
+  robots: { index: true, follow: true },
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+           { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    shortcut: ["/favicon.png"],
+  },
+  appleWebApp: { capable: true, title: "మన వివాహ", statusBarStyle: "default" },
+  formatDetection: { telephone: true },
+  category: "Matrimony",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  interactiveWidget: "resizes-content",
+  viewportFit: "cover",
+  themeColor: "#7A0C2E",
+};
+
+export default function SiteShell({
+  children, initialLang = "te",
+}: Readonly<{
+  children: React.ReactNode; initialLang?: "te" | "en";
+}>) {
+  return (
+    <html lang={initialLang === "en" ? "en-IN" : "te-IN"} data-lang={initialLang}>
+      <body className="antialiased min-h-dvh flex flex-col wedding-editorial-theme">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
+        />
+        <LangProvider initialLang={initialLang}>
+          <LocaleAnchor href="#main-content" className="skip-link">Skip to main content</LocaleAnchor>
+          <SiteAmbience />
+          <SiteHeader />
+          <LegacyLanguageHint />
+          <main id="main-content" className="flex-1" tabIndex={-1}><RouteFrame>{children}</RouteFrame></main>
+          <SupportWidget />
+          <SiteFooter />
+          <StickyCTA />
+          <PWA />
+          <BackToTop />
+        </LangProvider>
+      </body>
+    </html>
+  );
+}
+
+import LocaleAnchor from "@/components/LocaleAnchor";

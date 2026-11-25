@@ -462,12 +462,12 @@ def read(path):
     return src_page(path)
 
 
-dash_pg = read("frontend/src/app/referral/page.tsx")
-land_pg = read("frontend/src/app/r/[code]/page.tsx")
-code_pg = read("frontend/src/app/referral/register/page.tsx")
-admin_pg = read("frontend/src/app/admin/page.tsx")
+dash_pg = read("frontend/src/app/(telugu)/referral/page.tsx")
+land_pg = read("frontend/src/app/(telugu)/r/[code]/page.tsx")
+code_pg = read("frontend/src/app/(telugu)/referral/register/page.tsx")
+admin_pg = read("frontend/src/app/(telugu)/admin/page.tsx")
 admin_dashboard = read("frontend/src/components/control/Dashboard.tsx")
-reg_pg = read("frontend/src/app/register/page.tsx")
+reg_pg = read("frontend/src/app/(telugu)/register/page.tsx")
 sitemap = read("frontend/src/app/sitemap.ts")
 
 check("/referral page live API use chestundi (/api/referral/{id})", "/api/referral/${id}" in dash_pg or "/api/referral/" in dash_pg)

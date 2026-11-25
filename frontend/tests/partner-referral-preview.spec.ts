@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 const out='artifacts/mv-partner-referral-review';fs.mkdirSync(out,{recursive:true});
@@ -18,7 +19,7 @@ for(const lang of ['te','en'])for(const width of [320,390,1280])test(`partner jo
  return answer({success:true,leaderboard:[],payouts:[],campaigns:[],reviews:[],stats:{},items:[],payment_enabled:false});
  });
  const shot=async(name:string,selector?:string)=>{if(selector)await page.locator(selector).first().evaluate(e=>window.scrollTo({top:e.getBoundingClientRect().top+window.scrollY-90,behavior:'instant'}));else await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`${out}/${lang}-${width}-${name}.png`,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name).toBeTruthy()};
- const open=async(url:string,name:string)=>{await page.goto(url);await page.waitForLoadState('networkidle');await expect(page.locator('h1:visible')).toHaveCount(1);await expect(page.locator('.route-context')).toHaveCount(0);await shot(name);await page.screenshot({path:`${out}/${lang}-${width}-${name}-full.png`,fullPage:true,animations:'disabled'})};
+ const open=async(url:string,name:string)=>{await page.goto(localeHref(url,lang));await page.waitForLoadState('networkidle');await expect(page.locator('h1:visible')).toHaveCount(1);await expect(page.locator('.route-context')).toHaveCount(0);await shot(name);await page.screenshot({path:`${out}/${lang}-${width}-${name}-full.png`,fullPage:true,animations:'disabled'})};
  await open('/referral','referral');await page.locator('.mv-partner-workspace details:visible').first().locator('summary').click();await shot('referral-rules','.mv-partner-workspace details');await page.getByRole('button',{name:lang==='te'?'వెతకండి':'Search',exact:true}).click();
  await open('/referral/register','partner-register');await page.getByRole('button',{name:lang==='te'?/నా భాగస్వామి ID/:/Create my Partner ID/}).click();await expect(page.getByRole('status')).toContainText(lang==='te'?'పేరు':'Enter your name');await shot('partner-register-validation','button:has-text("🚀")');
  await open('/r/FICTIONAL','referral-link-error');await expect(page.locator('.mv-partner-workspace [role=alert]')).toContainText(lang==='te'?'నిర్ధారించలేకపోయాం':'could not be confirmed');await page.waitForTimeout(1800);await expect(page).toHaveURL(/\/r\/FICTIONAL$/);landing='invalid';await page.getByRole('button',{name:lang==='te'?'మళ్లీ ప్రయత్నించండి':'Try again',exact:true}).click();await expect(page.locator('h1')).toContainText(lang==='te'?'దొరకలేదు':'not found');await shot('referral-link-invalid');

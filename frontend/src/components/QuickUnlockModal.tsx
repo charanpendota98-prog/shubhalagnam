@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, authHeaders, readApiJson} from "@/lib/api";
@@ -129,8 +129,14 @@ export default function QuickUnlockModal({
     }
   };
 
+  // Language and parent callback changes must not restart a consent/payment workflow.
+  const workflowContext = useRef({ target, te, onUnlocked });
+  useEffect(() => { workflowContext.current = { target, te, onUnlocked }; }, [target, te, onUnlocked]);
+  const targetId = target?.tsap_id;
+
   // A full contact reveal is possible only when an accepted interest grants consent.
   const attemptDirectUnlock = useCallback(async () => {
+    const { target, te, onUnlocked } = workflowContext.current;
     const vid = getViewerId();
     if (!vid || !target) return;
     setBusy(true);
@@ -161,10 +167,10 @@ export default function QuickUnlockModal({
     } finally {
       setBusy(false);
     }
-  }, [target, te, onUnlocked]);
+  }, []);
 
   useEffect(() => {
-    if (isOpen && target) {
+    if (isOpen && targetId) {
       setUnlockedPhone("");
       setSuccessMsg("");
       setErrorMsg("");
@@ -172,7 +178,7 @@ export default function QuickUnlockModal({
       setPaymentComplete(false);
       attemptDirectUnlock();
     }
-  }, [isOpen, target, attemptDirectUnlock]);
+  }, [isOpen, targetId, attemptDirectUnlock]);
 
   if (!isOpen || !target) return null;
 
@@ -439,13 +445,13 @@ export default function QuickUnlockModal({
               </p>
               <div className="flex gap-2.5 pt-1">
                 {target?.tsap_id ? (
-                  <a
+                  <LocaleAnchor
                     href={`/search/${encodeURIComponent(target.tsap_id)}`}
                     className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition"
                   >
                     <span>📇</span>
                     <span>{te ? "Profile లో Contact QR చూడండి" : "View Contact QR on profile"}</span>
-                  </a>
+                  </LocaleAnchor>
                 ) : null}
               </div>
             </div>
@@ -486,10 +492,10 @@ export default function QuickUnlockModal({
                       <img src={`/api/pay/qr/${encodeURIComponent(payOrder.id)}.png?token=${encodeURIComponent(payOrder.qr_token || "")}`} alt="UPI payment QR code" width={140} height={140}
                         className="w-32 h-32 rounded-lg border border-slate-200" />
                     </div>
-                    <a href={`upi://pay?pa=${encodeURIComponent(payOrder.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${payOrder.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${payOrder.id}`)}`}
+                    <LocaleAnchor href={`upi://pay?pa=${encodeURIComponent(payOrder.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${payOrder.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${payOrder.id}`)}`}
                       className="inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-[#7A0C2E] text-white font-bold text-xs">
                       📲 {te ? `UPI యాప్‌తో ₹${payOrder.final_amount} చెల్లించండి` : `Pay ₹${payOrder.final_amount} with a UPI app`}
-                    </a>
+                    </LocaleAnchor>
                   </div>
                   {payOrder.status === "claimed" ? (
                     <div className="text-xs font-bold text-green-700 bg-green-50 p-3 rounded-xl border border-green-200" role="status">
@@ -651,7 +657,7 @@ export default function QuickUnlockModal({
                   {te ? "చెల్లింపులో సందేహమా? WhatsApp ద్వారా support ను సంప్రదించండి:" : "Questions about payment? Contact support on WhatsApp:"}
                 </div>
                 {paymentHelpUrl ? (
-                  <a
+                  <LocaleAnchor
                     href={paymentHelpUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -659,7 +665,7 @@ export default function QuickUnlockModal({
                   >
                     <span>💬</span>
                     <span>{te ? "WhatsApp లో సహాయం పొందండి" : "Get help on WhatsApp"}</span>
-                  </a>
+                  </LocaleAnchor>
                 ) : (
                   <span className="text-xs text-slate-500">WhatsApp support is unavailable.</span>
                 )}
@@ -695,3 +701,5 @@ export default function QuickUnlockModal({
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -4,7 +4,7 @@
  * Referral information notice (kept under its legacy component path).
  * No simulated profile activity, testimonials, payout feed, or timestamps.
  */
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 export default function LiveMatrimonyTicker() {

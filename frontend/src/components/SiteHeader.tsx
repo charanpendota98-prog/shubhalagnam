@@ -1,11 +1,12 @@
 "use client";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "@/components/LocaleLink";
+
 import { useEffect, useRef, useState } from "react";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { useSession, logout } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
 import { Duo, useDuo } from "@/lib/duo";
+import {baseLocalePath} from "@/lib/locale-path";
 import { LangToggle, useLang } from "@/lib/lang";
 import {
   Home, HeartHandshake, RefreshCw, Star, Megaphone, Users, Wallet, Gift,
@@ -119,8 +120,8 @@ const NAV_DESKTOP_MORE: NavItem[] = [
 
 export default function SiteHeader() {
   const duo = useDuo();
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname = baseLocalePath(useBasePathname() || "/");
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const [open, setOpen] = useState(false);
@@ -504,3 +505,5 @@ export default function SiteHeader() {
     </header>
   );
 }
+
+import {useLocaleRouter,useBasePathname} from "@/lib/locale-navigation";

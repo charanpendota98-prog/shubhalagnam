@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
+import {baseLocalePath} from "@/lib/locale-path";
 import RouteIntro from "@/components/RouteIntro";
 import "./restricted-operations.css";
 
@@ -84,7 +85,7 @@ function routeKey(pathname: string): string {
 }
 
 export default function RouteFrame({ children }: { children: ReactNode }) {
-  const pathname = usePathname() || "/";
+  const pathname = baseLocalePath(useBasePathname() || "/");
   const { lang } = useLang();
   const te = lang === "te";
   const key = routeKey(pathname);
@@ -124,3 +125,5 @@ export default function RouteFrame({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+import {useBasePathname} from "@/lib/locale-navigation";

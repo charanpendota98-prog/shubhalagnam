@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 const out=process.env.REGISTER_PORTABLE_OUT||'artifacts/register-portability';fs.mkdirSync(out,{recursive:true});
@@ -6,7 +7,7 @@ async function portable(root:any){const content=await root.evaluate((el:HTMLElem
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`portable registration form all steps ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);const seed=sessionStorage.getItem('test_registration_portability_seed');if(seed)localStorage.setItem('shubhalagnam_reg_draft_v6',seed);},lang);let writes=0;
  await page.route('**/api/**',r=>{if(r.request().method()!=='GET'){writes++;return r.abort();}return r.fulfill({json:{success:true,items:[],castes:[],districts:['Hyderabad'],password_login:true,phone_otp:false,passkeys_configured:false}});});
- await page.goto('/register');const root=page.locator('.mv-register-workspace');await expect(page.locator('#quick-religion')).toBeVisible();await portable(root);
+ await page.goto(localeHref('/register',lang));const root=page.locator('.mv-register-workspace');await expect(page.locator('#quick-religion')).toBeVisible();await portable(root);
  const bride=page.getByRole('button',{name:lang==='en'?'Bride':'వధువు',exact:true});await expect(bride).toHaveAccessibleName(lang==='en'?'Bride':'వధువు');await bride.click();await expect(bride).toHaveAttribute('aria-pressed','true');expect(await bride.locator('svg').count()).toBe(1);
  await page.screenshot({animations:'disabled',path:`${out}/${lang}-${width}-quick-top.png`});
  await page.getByRole('button',{name:lang==='en'?'Create my profile in 1 minute':'1 నిమిషంలో నా ప్రొఫైల్ సృష్టించండి',exact:false}).click();await portable(root);

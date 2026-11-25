@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { CHANNEL_STATS } from "@/lib/channels";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -135,9 +135,9 @@ export default function SiteFooter() {
             <div><Link href="/channels" className="inline-flex min-h-11 items-center py-1 underline underline-offset-2">{te ? "నమోదైన ఛానళ్ల వివరాలు" : "Configured channel listings"}</Link></div>
             <div>Telegram: {SITE_CONFIG.officialChannel}</div>
             <div>{te ? "వెబ్‌సైట్" : "Site"}: {SITE_CONFIG.domain}</div>
-            {SITE_CONFIG.supportEmail ? <div>{te ? "సహాయ ఈమెయిల్" : "Support email"}: <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline underline-offset-2">{SITE_CONFIG.supportEmail}</a></div> : null}
-            {SITE_CONFIG.supportLink ? <div><a href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{te ? "WhatsAppలో సహాయం" : "Configured WhatsApp support"}</a></div> : null}
-            {SITE_CONFIG.supportPhoneDisplay ? <div>{te ? "ఫోన్" : "Phone"}: <a href={`tel:${SITE_CONFIG.supportPhoneDisplay.replace(/[^\d+]/g, "")}`} className="underline underline-offset-2">{SITE_CONFIG.supportPhoneDisplay}</a></div> : null}
+            {SITE_CONFIG.supportEmail ? <div>{te ? "సహాయ ఈమెయిల్" : "Support email"}: <LocaleAnchor href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline underline-offset-2">{SITE_CONFIG.supportEmail}</LocaleAnchor></div> : null}
+            {SITE_CONFIG.supportLink ? <div><LocaleAnchor href={SITE_CONFIG.supportLink} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{te ? "WhatsAppలో సహాయం" : "Configured WhatsApp support"}</LocaleAnchor></div> : null}
+            {SITE_CONFIG.supportPhoneDisplay ? <div>{te ? "ఫోన్" : "Phone"}: <LocaleAnchor href={`tel:${SITE_CONFIG.supportPhoneDisplay.replace(/[^\d+]/g, "")}`} className="underline underline-offset-2">{SITE_CONFIG.supportPhoneDisplay}</LocaleAnchor></div> : null}
           </div>
         </div>
       </div>
@@ -154,3 +154,5 @@ export default function SiteFooter() {
     </footer>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

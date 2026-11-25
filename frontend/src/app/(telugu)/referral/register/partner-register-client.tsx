@@ -1,0 +1,424 @@
+"use client";
+
+import "@/components/partner-workspace.css";
+
+/**
+ * Referral partner registration and dashboard. Reward eligibility follows the
+ * published one-time qualifying consumer-plan rule; no payment is guaranteed.
+ */
+import { useEffect, useRef, useState } from "react";
+import {partnerRegistrationResult,partnerDashboardResult,partnerPrivateDashboardResult,partnerPayoutResult,type PartnerRegistration} from "@/lib/partner-registration-result";
+import CreatorCampaigns from "@/components/CreatorCampaigns";
+import Link from "@/components/LocaleLink";
+import { Duo, useDuo } from "@/lib/duo";
+import { useLang } from "@/lib/lang";
+import { apiDisplayMessage, readApiJson} from "@/lib/api";
+import { DISTRICTS_BY_STATE } from "@/lib/telugu-data";
+
+const STATES = [
+  { value: "AP", label: "Andhra Pradesh" },
+  { value: "KA", label: "Karnataka" },
+  { value: "MH", label: "Maharashtra" },
+  { value: "Other", label: "Other" },
+  { value: "TS", label: "Telangana" },
+];
+
+export default function PartnerRegisterPage() {
+  const duo = useDuo();
+  const { lang } = useLang();
+  const te = lang === "te";
+  const [f, setF] = useState({ name: "", phone: "", address: "", state: "", district: "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [done, setDone] = useState<PartnerRegistration | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [lookup, setLookup] = useState("");
+  const [dash, setDash] = useState<any>(null);
+  const [phoneForAccess, setPhoneForAccess] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [partnerToken, setPartnerToken] = useState("");
+  const [privateDash, setPrivateDash] = useState<any>(null);
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutUpi, setPayoutUpi] = useState("");
+  const [payoutBusy, setPayoutBusy] = useState(false);
+  const [payoutNeedsCheck,setPayoutNeedsCheck]=useState(false);
+  const [payoutMsg, setPayoutMsg] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+  const [dashBusy,setDashBusy]=useState(false);
+  const [dashError,setDashError]=useState("");
+  const active=useRef(true);
+  const registerLock=useRef(false);
+  const publicVersion=useRef(0);
+  const privateVersion=useRef(0);
+  const authLock=useRef(false);
+  const payoutLock=useRef(false);
+  const invalidatePrivate=()=>{
+    privateVersion.current++;authLock.current=false;payoutLock.current=false;
+    setPrivateDash(null);setPartnerToken("");setOtpSent(false);setOtpCode("");
+    setAuthMsg("");setPayoutMsg("");setPayoutAmount("");setPayoutUpi("");setPayoutNeedsCheck(false);
+    setAuthBusy(false);setPayoutBusy(false);
+  };
+  const currentPrivate=(version:number)=>active.current&&privateVersion.current===version;
+  const controllers=useRef(new Set<AbortController>());
+  useEffect(()=>{active.current=true;return ()=>{active.current=false;publicVersion.current++;privateVersion.current++;controllers.current.forEach(c=>c.abort());};},[]);
+  const boundedJson=async(url:string,init?:RequestInit)=>{
+    const controller=new AbortController();controllers.current.add(controller);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try {return await Promise.race([
+      (async()=>{const response=await fetch(url,{...init,signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
+      new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener('abort',()=>reject(new Error("Request cancelled")),{once:true});})
+    ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
+  };
+  const readPublicDashboard=async(id:string)=>{
+    const version=++publicVersion.current;setDashBusy(true);setDashError("");setDash(null);
+    try {
+      const {status,data}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}`);
+      if(!active.current||version!==publicVersion.current)return;
+      if(!partnerDashboardResult(status,data,id))throw new Error("Dashboard unconfirmed");
+      setDash({...data,link:partnerRegistrationResult(status,data,window.location.origin)?.link});
+    }catch{
+      if(active.current&&version===publicVersion.current)setDashError(te?"గణాంకాలు నిర్ధారించలేకపోయాం. భాగస్వామి ID ఉంటే అలాగే ఉంటుంది. మళ్లీ చూడటం గణాంకాలను మాత్రమే చదువుతుంది.":"Dashboard counts could not be confirmed. Any confirmed partner ID is unchanged. View again to retry the read only.");
+    }finally{if(active.current&&version===publicVersion.current)setDashBusy(false);}
+  };
+
+  const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const dists: string[] = f.state === "Other" ? [] : ((DISTRICTS_BY_STATE as Record<string, string[]>)[f.state] || []);
+
+  const submit = async () => {
+    if(registerLock.current||dashBusy)return;
+    if (!f.name.trim() || !f.phone.trim() || !f.state || !f.district.trim()) {
+      setMsg(te ? "పేరు, మొబైల్, రాష్ట్రం మరియు జిల్లా ఇవ్వండి." : "Enter your name, mobile, state and district.");
+      return;
+    }
+    invalidatePrivate();registerLock.current=true;setBusy(true);setMsg("");setDone(null);setDashError("");setDash(null);
+    let confirmed:PartnerRegistration|null=null;
+    try {
+      const {status,data}=await boundedJson("/api/referral/partner/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});
+      if(!active.current)return;
+      confirmed=partnerRegistrationResult(status,data,window.location.origin);
+      if(!confirmed){
+        setMsg(te?"నమోదు ఫలితం నిర్ధారణ కాలేదు. మీ వివరాలు అలాగే ఉన్నాయి. మళ్లీ సృష్టించే ముందు మీకు ID వచ్చిందో చూడండి.":"Registration could not be confirmed. Your details are preserved. Check whether you received an ID before creating another request.");return;
+      }
+      setDone(confirmed);setLookup(confirmed.partner_id);setPhoneForAccess(f.phone);setPrivateDash(null);setPartnerToken("");
+      setMsg(confirmed.already?(te?"ఈ మొబైల్‌కు ఇప్పటికే భాగస్వామి ID ఉంది. అదే ID చూపిస్తున్నాం.":"This mobile already has a partner ID. Your existing ID is shown."):(te?"భాగస్వామి ID సృష్టించబడింది.":"Partner ID created."));
+    }catch{
+      if(active.current)setMsg(te?"నమోదు ఫలితం నిర్ధారణ కాలేదు. మీ వివరాలు అలాగే ఉన్నాయి. మళ్లీ సృష్టించే ముందు మీకు ID వచ్చిందో చూడండి.":"Registration could not be confirmed. Your details are preserved. Check whether you received an ID before creating another request.");
+    }finally{registerLock.current=false;if(active.current)setBusy(false);}
+    if(confirmed&&active.current)await readPublicDashboard(confirmed.partner_id);
+  };
+
+  const copy = async (t: string) => {
+    try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    catch { /* ignore */ }
+  };
+
+  const loadDash = async () => {
+    if(registerLock.current||dashBusy)return;
+    const id=lookup.trim();
+    if(!id)return;
+    invalidatePrivate();
+    await readPublicDashboard(id);
+  };
+
+  const loadPrivateDash = async (id: string, token: string, version: number) => {
+    if(!currentPrivate(version))return false;
+    setPrivateDash(null);
+    try {
+      const {status,data:d}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}/private`,{headers:{"X-Partner-Token":token}});
+      if(!currentPrivate(version))return false;
+      if(!partnerPrivateDashboardResult(status,d,id)){
+        setPrivateDash(null);setPartnerToken("");
+        setAuthMsg(te?"వ్యక్తిగత వివరాలు నిర్ధారణ కాలేదు. మొబైల్‌ను మళ్లీ ధృవీకరించండి.":"Private details could not be confirmed. Verify the registered mobile again.");return false;
+      }
+      setPrivateDash(d);setAuthMsg("");return true;
+    }catch{
+      if(currentPrivate(version)){setPrivateDash(null);setPartnerToken("");setAuthMsg(te?"వ్యక్తిగత వివరాలు నిర్ధారణ కాలేదు. మొబైల్‌ను మళ్లీ ధృవీకరించండి.":"Private details could not be confirmed. Verify the registered mobile again.");}
+      return false;
+    }
+  };
+
+  const sendPartnerOtp=async()=>{
+    if(authLock.current)return;
+    const phone=phoneForAccess.replace(/\D/g,"");
+    if(!/^[6-9]\d{9}$/.test(phone)){setAuthMsg(te?"భాగస్వామి నమోదులో ఉన్న 10 అంకెల మొబైల్ ఇవ్వండి.":"Enter the 10-digit mobile number registered to this partner ID.");return;}
+    const version=privateVersion.current;authLock.current=true;setAuthBusy(true);setAuthMsg("");setOtpSent(false);setOtpCode("");
+    try{
+      const {status,data:d}=await boundedJson("/api/otp/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,purpose:"login"})});
+      if(!currentPrivate(version))return;
+      if(status!==200||d?.success!==true){setAuthMsg(apiDisplayMessage(d,te,te?"OTP పంపలేకపోయాం.":"Could not send the one-time code."));return;}
+      setOtpSent(true);setAuthMsg(apiDisplayMessage(d,te,te?"OTP పంపించాం. 10 నిమిషాల్లో నమోదు చేయండి.":"One-time code sent. Enter it within 10 minutes."));
+    }catch{if(currentPrivate(version))setAuthMsg(te?"OTP పంపినట్లు నిర్ధారణ కాలేదు. కొత్త కోడ్ కోరే ముందు వచ్చిన సందేశాలు చూడండి.":"The code request could not be confirmed. Check received messages before requesting another code.");}
+    finally{if(currentPrivate(version)){authLock.current=false;setAuthBusy(false);}}
+  };
+
+  const verifyPartnerOtp=async()=>{
+    if(authLock.current)return;
+    const id=String(dash?.partner_id||"");const phone=phoneForAccess.replace(/\D/g,"");const code=otpCode.trim();
+    if(!id||id!==lookup.trim()||!/^[6-9]\d{9}$/.test(phone)||!/^\d{4}$/.test(code)){setAuthMsg(te?"భాగస్వామి ID, నమోదు చేసిన మొబైల్ మరియు 4 అంకెల OTP ఇవ్వండి.":"Enter the partner ID, registered mobile and 4-digit OTP.");return;}
+    const version=privateVersion.current;authLock.current=true;setAuthBusy(true);setAuthMsg("");setPrivateDash(null);setPartnerToken("");
+    try{
+      const {status:verifyStatus,data:verifyData}=await boundedJson("/api/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,code})});
+      if(!currentPrivate(version))return;
+      if(verifyStatus!==200||verifyData?.success!==true){setAuthMsg(apiDisplayMessage(verifyData,te,te?"OTP సరిపోలలేదు.":"One-time code verification failed."));return;}
+      const {status,data}=await boundedJson(`/api/referral/partner/${encodeURIComponent(id)}/auth`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone})});
+      if(!currentPrivate(version))return;
+      if(status!==200||data?.success!==true||typeof data?.partner_token!=="string"||!data.partner_token.trim()){setAuthMsg(apiDisplayMessage(data,te,te?"ఈ మొబైల్ ఈ భాగస్వామి ID కి సరిపోలలేదు.":"That mobile number does not match this partner ID."));return;}
+      setPartnerToken(data.partner_token);await loadPrivateDash(id,data.partner_token,version);
+    }catch{if(currentPrivate(version))setAuthMsg(te?"ధృవీకరణ ఫలితం నిర్ధారణ కాలేదు. మళ్లీ ప్రయత్నించండి.":"Verification could not be confirmed. Please retry.");}
+    finally{if(currentPrivate(version)){authLock.current=false;setAuthBusy(false);}}
+  };
+
+  const requestPartnerPayout=async()=>{
+    if(payoutLock.current||payoutNeedsCheck||Number(privateDash?.pending_payout)>0)return;
+    const id=String(privateDash?.partner_id||"");const amount=Number(payoutAmount);
+    if(!partnerToken||!id||id!==lookup.trim()||id!==dash?.partner_id){setPayoutMsg(te?"ముందుగా నమోదైన మొబైల్‌ను ధృవీకరించండి.":"Verify the registered mobile first.");return;}
+    if(!Number.isInteger(amount)||amount<50||amount>Number(privateDash?.wallet||0)){setPayoutMsg(te?"మొత్తం కనీసం ₹50 ఉండాలి. అందుబాటులో ఉన్న నిల్వకు మించకూడదు.":"Enter a whole-rupee amount from ₹50 up to your available wallet balance.");return;}
+    if(!payoutUpi.trim()){setPayoutMsg(te?"మీ UPI ID ఇవ్వండి.":"Enter your UPI ID.");return;}
+    const version=privateVersion.current;const token=partnerToken;const upi=payoutUpi.trim();payoutLock.current=true;authLock.current=true;setAuthBusy(true);setPayoutBusy(true);setPayoutMsg("");
+    try{
+      const {status,data}=await boundedJson("/api/referral/partner/payout",{method:"POST",headers:{"Content-Type":"application/json","X-Partner-Token":token},body:JSON.stringify({partner_id:id,amount,method:"upi",upi_id:upi})});
+      if(!currentPrivate(version))return;
+      const requestId=partnerPayoutResult(status,data,id,amount,upi);
+      setPayoutNeedsCheck(true);
+      if(!requestId){setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. వివరాలు అలాగే ఉన్నాయి. మళ్లీ పంపే ముందు నిల్వను తాజాకరించి, సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Request not confirmed. Your details are preserved. Refresh the wallet and check the amount under review before trying again.");return;}
+      setPayoutAmount("");setPayoutMsg(te?`అభ్యర్థన ${requestId} (₹${amount}) సమీక్ష కోసం నమోదైంది. ఇది నగదు బదిలీ కాదు.`:`Request ${requestId} for ₹${amount} is queued for review. This is not a transfer.`);await loadPrivateDash(id,token,version);
+    }catch{if(currentPrivate(version)){setPayoutNeedsCheck(true);setPayoutMsg(te?"అభ్యర్థన ఫలితం నిర్ధారణ కాలేదు. వివరాలు అలాగే ఉన్నాయి. మళ్లీ పంపే ముందు నిల్వను తాజాకరించి, సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Request not confirmed. Your details are preserved. Refresh the wallet and check the amount under review before trying again.");}}
+    finally{if(currentPrivate(version)){payoutLock.current=false;authLock.current=false;setAuthBusy(false);setPayoutBusy(false);}}
+  };
+  const refreshPartnerWallet=async()=>{
+    if(payoutLock.current||!partnerToken||!privateDash)return;
+    const version=privateVersion.current,id=String(privateDash.partner_id),token=partnerToken;
+    payoutLock.current=true;authLock.current=true;setAuthBusy(true);setPayoutBusy(true);
+    try{if(await loadPrivateDash(id,token,version)){setPayoutNeedsCheck(false);setPayoutMsg(te?"నిల్వ తాజాకరించబడింది. కొత్త అభ్యర్థనకు ముందు సమీక్షలో ఉన్న మొత్తాన్ని చూడండి.":"Wallet refreshed. Check the amount under review before a new request.");}}
+    finally{if(currentPrivate(version)){payoutLock.current=false;authLock.current=false;setAuthBusy(false);setPayoutBusy(false);}}
+  };
+  const privateReady=privateDash?.success===true&&privateDash.partner_id===dash?.partner_id&&privateDash.partner_id===lookup.trim()&&!!partnerToken;
+
+  return (
+    <div className="mv-partner-workspace mx-auto max-w-2xl px-4 py-8">
+      <h1 className="text-2xl font-extrabold text-maroon">🤝 Manavivaha Creator Club</h1>
+      <p className="mt-2 text-lg font-bold text-slate-900">{te ? "మీ పరిచయం. ఒక కుటుంబానికి కొత్త ఆరంభం." : "Your introduction. A family's new beginning."}</p>
+      <p className="mt-1 text-sm text-emerald-800 font-bold telugu">
+        {duo("Anyone can request a referral partner ID. Credits and any cash reward follow separate eligibility terms.",
+             "ఎవరైనా referral partner ID కోసం నమోదు చేసుకోవచ్చు. Credits మరియు cash reward కు వేర్వేరు అర్హత నియమాలు వర్తిస్తాయి.")}
+      </p>
+      <p className="mt-1 text-sm text-slate-600 telugu">
+        {duo("Create your ID and link. A valid referral attachment grants +2 interest-request credits to you and +1 to the new user (not cash). You may qualify for ₹50 once only if the referred user's first S_99/S_199/S_299/S_499 consumer-plan payment is at least ₹99. Exclusions apply; payout requests receive manual review.",
+             "మీ ID మరియు link సృష్టించండి. Valid referral attach పై మీకు +2, కొత్త user కు +1 interest-request credits వస్తాయి (cash కాదు). Referred user మొదటి S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 అయితే మాత్రమే మీకు ఒక్కసారి ₹50 అర్హత ఉండవచ్చు. మినహాయింపులు, manual payout review వర్తిస్తాయి.")}
+      </p>
+
+      <section className="mt-4 rounded-2xl border border-gold/40 bg-gradient-to-br from-cream to-white p-4 card-shadow">
+        <div className="text-[13px] font-bold text-maroon">
+          {duo("👥 Who can join?", "👥 ఎవరు చేరవచ్చు?")}
+        </div>
+        <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
+          {[
+            { i: "🎓", en: "Students", te: "విద్యార్థులు" },
+            { i: "🏠", en: "Homemakers", te: "గృహిణులు" },
+            { i: "💼", en: "Working pros", te: "ఉద్యోగస్తులు" },
+            { i: "🧑‍🌾", en: "Anyone with a phone", te: "ఫోన్ ఉన్న ఎవరైనా" },
+          ].map((c) => (
+            <div key={c.en} className="rounded-xl bg-white border border-gold/25 p-2.5">
+              <div className="text-lg">{c.i}</div>
+              <div className="mt-1 font-semibold text-ink telugu">{duo(c.en, c.te)}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 text-[12px] text-slate-600 font-medium telugu text-center">
+          {duo("A registration or general payment alone does not earn a cash reward. See the referral terms for qualifying plans and exclusions.",
+               "నమోదు లేదా ఏ payment అయినా cash reward ఇవ్వదు. అర్హమైన plans మరియు మినహాయింపుల కోసం referral terms చూడండి.")}
+        </div>
+      </section>
+
+      {!done ? (
+        <section className="mt-4 rounded-2xl border border-gold/30 bg-white p-4 card-shadow space-y-3">
+          <div>
+            <label className="text-[13px] font-bold">👤 {duo("Your name", "మీ పేరు")} *</label>
+            <input aria-label={te ? "మీ పేరు" : "Your name"} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={te ? "మీ పేరు" : "Your name"}
+              autoComplete="name" className="input-mobile mt-1" />
+          </div>
+          <div>
+            <label className="text-[13px] font-bold">📞 {duo("Mobile", "మొబైల్")} *</label>
+            <input aria-label={te ? "10 అంకెల మొబైల్ నంబర్" : "10-digit mobile number"} value={f.phone} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+              inputMode="numeric" autoComplete="tel" placeholder={te ? "10 అంకెల మొబైల్ నంబర్" : "10-digit mobile number"} className="input-mobile mt-1" />
+          </div>
+          <div>
+            <label className="text-[13px] font-bold">🏠 {duo("Address", "చిరునామా")}</label>
+            <input aria-label="Village/Town, Mandal" value={f.address} onChange={(e) => set("address", e.target.value)} placeholder="Village/Town, Mandal"
+              className="input-mobile mt-1" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-[13px] font-bold">🗺️ {duo("State", "రాష్ట్రం")} *</label>
+              <select aria-label={te ? "రాష్ట్రం" : "State"} value={f.state} onChange={(e) => { set("state", e.target.value); set("district", ""); }}
+                className="input-mobile mt-1" required>
+                <option value="">{te ? "రాష్ట్రం ఎంచుకోండి" : "Select a state"}</option>
+                {STATES.map((state) => <option key={state.value} value={state.value}>{state.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[13px] font-bold">📍 {duo("District", "జిల్లా")} *</label>
+              {dists.length ? (
+                <select aria-label={te ? "జిల్లా" : "District"} value={f.district} onChange={(e) => set("district", e.target.value)} className="input-mobile mt-1" required>
+                  <option value="">{te ? "జిల్లా ఎంచుకోండి" : "Select a district"}</option>
+                  {dists.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              ) : (
+                <input aria-label={te ? "మీ జిల్లా" : "Your district"} value={f.district} onChange={(e) => set("district", e.target.value)} placeholder={te ? "మీ జిల్లా" : "Your district"}
+                  required className="input-mobile mt-1" />
+              )}
+            </div>
+          </div>
+          {msg ? <p className="text-[13px] font-medium text-maroon">{msg}</p> : null}
+          <button type="button" onClick={submit} disabled={busy||dashBusy}
+            className="w-full rounded-2xl maroon-gradient text-white font-bold py-3 disabled:opacity-50">
+            {busy ? "…" : <>🚀 <Duo en="Create my Partner ID" te="నా భాగస్వామి ID సృష్టించండి" /></>}
+          </button>
+        </section>
+      ) : (
+        <section className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-center">
+          <div className="text-4xl">🎉</div>
+          <div className="font-bold text-emerald-900 text-lg mt-1">ID: <span className="font-mono">{done.partner_id}</span></div>
+          {done.link?<div className="mt-2 rounded-xl bg-white border border-emerald-200 p-3 text-[12px] font-mono break-all">{done.link}</div>:<p className="mt-2 text-sm">{te?"నమోదు ID నిర్ధారించబడింది. సిఫార్సు లింక్ మాత్రం నిర్ధారణ కాలేదు.":"Your partner ID is confirmed. The referral link could not be confirmed."}</p>}
+          <div className="mt-3 flex gap-2 justify-center">
+            {done.link&&<button type="button" onClick={() => void copy(done.link!)}
+              className="rounded-full bg-[#7A0C2E] text-white px-5 py-2.5 text-sm font-bold">
+              {copied ? "copied ✓" : (te ? "🔗 Link copy" : "🔗 Copy link")}
+            </button>}
+            <button type="button" disabled={dashBusy} onClick={() => { invalidatePrivate();publicVersion.current++;setDone(null);setMsg("");setDash(null);setDashError(""); }}
+              className="rounded-full border border-emerald-400 px-5 py-2.5 text-sm font-bold text-emerald-800">
+              + {duo("New partner", "కొత్త భాగస్వామి")}
+            </button>
+          </div>
+          <p className="mt-3 text-[12px] text-emerald-900 telugu">
+            {duo("This link is for registration. A ₹50 reward is possible only once on a qualifying first consumer-plan payment (minimum ₹99); exclusions apply and payout requests are manually reviewed.",
+                 "ఈ link నమోదు కోసం. అర్హమైన మొదటి consumer-plan payment కనీసం ₹99 అయితే మాత్రమే ఒక్కసారి ₹50 reward ఉండవచ్చు; మినహాయింపులు మరియు manual review వర్తిస్తాయి.")}
+          </p>
+        </section>
+      )}
+
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-bold">📊 <Duo en="My partner dashboard" te="నా భాగస్వామి డాష్‌బోర్డ్" /></h2>
+        <div className="mt-2 flex gap-2">
+          <input aria-label={te ? "Partner ID" : "Partner ID"} value={lookup} disabled={busy||dashBusy} onChange={(e) => {setLookup(e.target.value.toUpperCase());publicVersion.current++;setDash(null);setDashError("");invalidatePrivate();}} placeholder={te ? "Partner ID" : "Partner ID"}
+            className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <button type="button" onClick={loadDash} disabled={busy||dashBusy} className="rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon">
+            {te ? "చూడు" : "View"}
+          </button>
+        </div>
+        {msg ? <p className="mt-2 text-sm font-medium text-maroon" role="status">{msg}</p> : null}
+        {dashBusy?<p role="status" className="mt-2 text-sm">{te?"గణాంకాలు తనిఖీ చేస్తున్నాం…":"Checking dashboard counts…"}</p>:null}
+        {dashError?<p role="alert" className="mt-2 text-sm text-maroon">{dashError}</p>:null}
+        {dash?.success ? (
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-1 gap-2 text-center text-[12px] sm:grid-cols-3">
+              <div className="rounded-xl bg-cream p-3"><b>{dash.clicks ?? 0}</b><br />👆 {duo("Link clicks", "లింక్ క్లిక్‌లు")}</div>
+              <div className="rounded-xl bg-cream p-3"><b>{dash.registrations ?? 0}</b><br />{duo("Registrations", "నమోదులు")}</div>
+              <div className="rounded-xl bg-cream p-3"><b>{dash.paid_count ?? 0}</b><br />{duo("Qualifying first-plan payments", "అర్హమైన first-plan payments")}</div>
+              {dash.link ? (
+                <div className="col-span-1 flex flex-wrap gap-2 justify-center sm:col-span-3">
+                  <button type="button" onClick={() => void copy(String(dash.link))}
+                    className="min-h-10 rounded-full bg-[#7A0C2E] text-white px-4 py-2 text-[12px] font-bold">
+                    {copied ? "copied ✓" : (te ? "🔗 Link copy" : "🔗 Copy link")}
+                  </button>
+                  <LocaleAnchor href={`https://wa.me/?text=${encodeURIComponent(te ? `Mana Vivaha • మన వివాహ లో నమోదు చేసుకోండి. Valid referral attach పై కొత్త user కు +1, referrer కు +2 interest-request credits (cash కాదు). ₹50 reward కు first qualifying S_99/S_199/S_299/S_499 consumer-plan payment కనీసం ₹99 కావాలి; exclusions వర్తిస్తాయి. నియమాలు: https://manavivaha.in/referral ${dash.link}` : `Register on Mana Vivaha • మన వివాహ. A valid referral attachment gives +1 request credit to the new user and +2 to the referrer (not cash). A one-time ₹50 reward may qualify only on the first eligible S_99/S_199/S_299/S_499 consumer-plan payment of at least ₹99; exclusions apply. Terms: https://manavivaha.in/referral ${dash.link}`)}`}
+                    target="_blank" rel="noreferrer"
+                    className="min-h-10 rounded-full bg-[#25D366] text-white px-4 py-2 text-[12px] font-bold">
+                    📲 WhatsApp share
+                  </LocaleAnchor>
+                </div>
+              ) : null}
+            </div>
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600">
+              {duo("Public dashboard shows aggregate counts only. Wallet balance and payout details require verification of the mobile number registered to this partner ID.",
+                   "Public dashboard లో మొత్తం లెక్కలే కనిపిస్తాయి. Wallet balance మరియు payout వివరాల కోసం ఈ partner ID కు నమోదైన మొబైల్ verify చేయాలి.")}
+            </p>
+            {Array.isArray(dash.joins) && dash.joins.length ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-2 text-left space-y-1" aria-label={te ? "గుర్తింపు వివరాలు లేని referral activity" : "Anonymous referral activity"}>
+                <div className="px-1 pb-1 text-[11px] font-bold text-slate-500">{duo("Recent activity (anonymous)", "ఇటీవలి activity (గుర్తింపు వివరాలు లేకుండా)")}</div>
+                {dash.joins.map((j: any) => (
+                  <div key={String(j.join_no)} className="flex items-center justify-between gap-2 rounded-lg bg-cream/60 px-2 py-1.5 text-[12px]">
+                    <div className="min-w-0 font-semibold text-slate-700">Referral #{j.join_no}</div>
+                    <span className={`shrink-0 text-right font-bold ${j.paid ? "text-emerald-700" : "text-amber-600"}`}>
+                      {j.paid ? "✅ Eligible reward recorded" : j.reward_reversed ? "↩️ Reward reversed" : "No eligible reward recorded"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {!privateReady ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
+                <h3 className="text-sm font-bold text-maroon">🔐 {duo("Verify partner mobile to view wallet", "Wallet చూడటానికి partner మొబైల్ verify చేయండి")}</h3>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                  <input aria-label={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"} type="tel" inputMode="numeric" autoComplete="tel" value={phoneForAccess}
+                    onChange={(e) => {invalidatePrivate();setPhoneForAccess(e.target.value.replace(/\D/g, "").slice(0, 10));}}
+                    placeholder={te ? "నమోదైన 10 అంకెల మొబైల్" : "Registered 10-digit mobile"}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  <button type="button" onClick={sendPartnerOtp} disabled={authBusy}
+                    className="min-h-10 rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                    {authBusy ? "…" : duo("Send OTP", "OTP పంపండి")}
+                  </button>
+                </div>
+                {otpSent ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                    <input aria-label={te ? "4 అంకెల OTP" : "4-digit OTP"} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={te ? "4 అంకెల OTP" : "4-digit OTP"}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                    <button type="button" onClick={verifyPartnerOtp} disabled={authBusy}
+                      className="min-h-10 rounded-xl border border-[#7A0C2E] px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">
+                      {authBusy ? "…" : duo("Verify & continue", "Verify చేసి కొనసాగండి")}
+                    </button>
+                  </div>
+                ) : null}
+                {authMsg ? <p className="text-xs font-medium text-maroon" role="status">{authMsg}</p> : null}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                <h3 className="text-sm font-bold text-emerald-900">👛 {duo("Private wallet & payout request", "వ్యక్తిగత wallet మరియు payout అభ్యర్థన")}</h3>
+                <div className="grid grid-cols-1 gap-2 text-center text-[12px] sm:grid-cols-3">
+                  <div className="rounded-xl bg-white p-3"><b>₹{privateDash.wallet ?? 0}</b><br />{duo("Available wallet", "అందుబాటులో ఉన్న wallet")}</div>
+                  <div className="rounded-xl bg-white p-3"><b>₹{privateDash.pending_payout ?? 0}</b><br />{duo("Under review", "Review లో ఉంది")}</div>
+                  <div className="rounded-xl bg-white p-3"><b>₹{privateDash.qualifying_rewards_total ?? 0}</b><br />{duo("Recorded qualifying rewards", "నమోదైన అర్హమైన rewards")}</div>
+                </div>
+                <p className="text-[12px] leading-relaxed text-slate-600">
+                  {duo("A payout request is not a transfer. Requests receive manual review; processing time is not guaranteed.",
+                       "Payout request పంపడం transfer కాదు. అభ్యర్థనలకు manual review ఉంటుంది; processing time హామీ లేదు.")}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="text-[11px] font-semibold text-slate-700">{duo("Amount (₹50 minimum)", "మొత్తం (కనీసం ₹50)")}
+                    <input type="number" inputMode="numeric" min={50} max={Number(privateDash.wallet || 0)} step={1}
+                      value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                  <label className="text-[11px] font-semibold text-slate-700">{duo("Your UPI ID", "మీ UPI ID")}
+                    <input type="text" autoComplete="off" value={payoutUpi} onChange={(e) => setPayoutUpi(e.target.value)}
+                      placeholder={te ? "మీ UPI ID" : "Enter your UPI ID"}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                </div>
+                <button type="button" onClick={requestPartnerPayout} disabled={payoutBusy || payoutNeedsCheck || Number(privateDash.pending_payout)>0 || Number(privateDash.wallet || 0) < 50}
+                  className="min-h-11 w-full rounded-xl bg-[#7A0C2E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                  {payoutBusy ? "…" : duo("Submit payout request", "Payout అభ్యర్థన పంపండి")}
+                </button>
+                <button type="button" onClick={refreshPartnerWallet} disabled={payoutBusy} className="min-h-11 w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-bold text-emerald-900 disabled:opacity-50">{duo("Refresh wallet", "నిల్వను తాజాకరించండి")}</button>
+                {Number(privateDash.pending_payout)>0?<p className="text-xs text-emerald-900" role="status">{duo("A request amount is under review. Wait for its review before submitting another request.","ఒక అభ్యర్థన మొత్తం సమీక్షలో ఉంది. మరో అభ్యర్థన పంపే ముందు దాని సమీక్ష పూర్తయ్యే వరకు వేచి ఉండండి.")}</p>:null}
+                {payoutMsg ? <p className="text-xs font-medium text-emerald-900" role="status">{payoutMsg}</p> : null}
+                {authMsg ? <p className="text-xs font-medium text-emerald-900" role="status">{authMsg}</p> : null}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </section>
+
+      {privateReady && <CreatorCampaigns key={privateDash.partner_id} identity={privateDash.partner_id} partnerToken={partnerToken} />}
+      <p className="mt-4 text-center text-sm text-slate-600">
+        <Link href="/referral" className="font-semibold text-maroon underline">← Referral home</Link>
+      </p>
+    </div>
+  );
+}
+
+import LocaleAnchor from "@/components/LocaleAnchor";

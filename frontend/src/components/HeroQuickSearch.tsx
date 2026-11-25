@@ -7,7 +7,7 @@
  * 100% Mobile & Desktop friendly
  */
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 import {
   CASTES,
@@ -56,7 +56,7 @@ const AGE_RANGES = [
 ];
 
 export default function HeroQuickSearch() {
-  const router = useRouter();
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
 
@@ -458,3 +458,5 @@ export default function HeroQuickSearch() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

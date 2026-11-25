@@ -416,7 +416,7 @@ def read(rel):
     return src_page(os.path.join("frontend", rel))
 
 
-workspace = read("src/app/control/workspace/page.tsx")
+workspace = read("src/app/(telugu)/control/workspace/page.tsx")
 check("K1 control workspace page exists and is client-rendered",
       bool(workspace.strip()) and ("use client" in workspace or "Workspace" in workspace),
       len(workspace))
@@ -424,10 +424,10 @@ dashboard_src = read("src/components/control/Dashboard.tsx")
 check("K2 control workspace renders the shared control dashboard (worker RBAC)",
       "Dashboard" in workspace and "worker" in workspace.lower(), workspace[:80])
 check("K2b that dashboard is wired to the control APIs", "/api/control/" in dashboard_src)
-lagna = read("src/app/lagna-patrika/page.tsx")
+lagna = read("src/app/(telugu)/lagna-patrika/page.tsx")
 check("K3 lagna patrika page renders the invitation form",
       bool(lagna.strip()) and ("lagna" in lagna.lower() or "పత్రిక" in lagna), len(lagna))
-pelli = read("src/app/pelli-choopulu/page.tsx")
+pelli = read("src/app/(telugu)/pelli-choopulu/page.tsx")
 check("K4 pelli choopulu page renders its content",
       bool(pelli.strip()) and ("పెళ్లి" in pelli or "choopulu" in pelli.lower()), len(pelli))
 
@@ -640,12 +640,12 @@ check("N7 a Groom + Housewife search answers 200 and never returns a bride or an
       "%s rows=%d" % (r.status_code, len(_rows)))
 
 # 7. The forms themselves must not offer the option to a groom.
-register_src = read("src/app/register/page-client.tsx")
+register_src = read("src/app/(telugu)/register/page-client.tsx")
 check("N8 the registration form hides the homemaker option for grooms",
       "isGroomGender(f.gender)" in register_src and "workTypesForGender(f.gender)" in register_src)
 check("N9 the registration form renders the work-sector field it validates",
       'set("work_type"' in register_src and "Select work sector" in register_src)
-matches_src = read("src/app/matches/page-client.tsx")
+matches_src = read("src/app/(telugu)/matches/page-client.tsx")
 check("N10 the matches filter drops the homemaker chip when searching for a groom",
       "isGroomGender(filters.gender)" in matches_src)
 hero_src = read("src/components/HeroQuickSearch.tsx")

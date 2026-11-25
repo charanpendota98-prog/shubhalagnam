@@ -12,10 +12,8 @@ const ROMAN_TELUGU = /\b(?:meeku|meeru|mee|manam|mari|chesi|chesina|chesukondi|c
 
 function selectedLanguage(): "te" | "en" {
   if (typeof window === "undefined") return "te";
-  try {
-    const saved = localStorage.getItem("tsap_lang");
-    if (saved === "te" || saved === "en") return saved;
-  } catch { /* fall through to the document setting */ }
+  // The active document is URL-led on first load and updated by explicit toggles.
+  // A legacy saved preference must not retranslate API results behind the UI.
   return document.documentElement.dataset.lang === "en" ? "en" : "te";
 }
 

@@ -10,7 +10,7 @@ Paatha tests anni `page.tsx` lopaliki direct ga dive ayyevi — split tarvata
 avi "feature ledu" ani FALSE FAIL isthunnai (UI real ga page-client lo undi).
 
 Ee helper okke okka place lo aa resolution chestundi:
-  • `src_page("frontend/src/app/register/page.tsx")`
+  • `src_page("frontend/src/app/(telugu)/register/page.tsx")`
       → register/page.tsx + register/page-client.tsx (rendu content join)
   • client file lekapothe → page.tsx matrame (backwards compatible)
   • path already `-client` tho aipithe → aa file matrame

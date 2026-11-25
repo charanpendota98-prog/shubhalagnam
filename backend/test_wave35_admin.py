@@ -80,7 +80,7 @@ try:
     # =======================================================================
     section("A - static admin dead-API audit (frontend URL -> backend route)")
     FRONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "src")
-    ADMIN_FILES = ["app/admin/page.tsx", "app/admin/photos/page.tsx",
+    ADMIN_FILES = ["app/(telugu)/admin/page.tsx", "app/(telugu)/admin/photos/page.tsx",
                    "components/AdminOps.tsx", "components/PayConsole.tsx",
                    "components/MatchSend.tsx", "components/AstroConsole.tsx",
                    "components/AdsConsole.tsx", "components/OffersConsole.tsx",

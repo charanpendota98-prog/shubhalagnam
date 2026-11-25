@@ -102,6 +102,7 @@ jobs:
         id: visual
         env:
           REQUIRE_VISUAL_TESTS: "1"
+          VISUAL_PRODUCTION: "1"
           PLAYWRIGHT_JSON_OUTPUT_FILE: artifacts/visual-results.json
         run: |
           mkdir -p artifacts
@@ -138,6 +139,7 @@ jobs:
         id: axe
         env:
           REQUIRE_VISUAL_TESTS: "1"
+          VISUAL_PRODUCTION: "1"
           PLAYWRIGHT_JSON_OUTPUT_FILE: artifacts/axe-results.json
         run: |
           mkdir -p artifacts

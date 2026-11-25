@@ -345,7 +345,7 @@ export default function LagnaPatrikaStudio() {
             <div className="flex flex-col gap-3 rounded-2xl border border-gold/30 bg-white p-4 shadow-md sm:flex-row sm:items-center sm:justify-between">
               <h2 id="patrika-preview-title" className="text-sm font-bold text-gray-800">✨ {te ? "లైవ్ ప్రివ్యూ & డౌన్‌లోడ్" : "Live preview & actions"}</h2>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <a
+                <LocaleAnchor
                   href={waShareUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -354,7 +354,7 @@ export default function LagnaPatrikaStudio() {
                 >
                   <WhatsAppIcon className="h-4 w-4" mono />
                   <span>{te ? "WhatsApp ఆహ్వానం" : "WhatsApp invitation"}</span>
-                </a>
+                </LocaleAnchor>
                 <button
                   type="button"
                   onClick={handleDownloadHD}
@@ -411,3 +411,5 @@ export default function LagnaPatrikaStudio() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {registrationNameError,registrationFailureMessage} from '../src/lib/registration-validation';
@@ -9,6 +10,6 @@ test('legacy name rejection is actionable instead of generic',()=>{const p={deta
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`full final step returns to name without upload ${lang} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});await page.addInitScript(l=>{localStorage.setItem('tsap_lang',l);localStorage.setItem('shubhalagnam_reg_draft_v6',JSON.stringify({step:5,data:{full_name:'Fictional123',gender:'Groom',dob:'1995-05-12',height:'5 ft 6 in (168 cm)',marital_status:'Pelli Kaledu',religion:'Hindu',caste:'Kapu',work_type:'Software / IT / Tech',education:'B.Tech / B.E.',job:'Software Engineer',salary:'Not applicable',state:'TS',district:'Hyderabad',phone:'9000000001'}}))},lang);
  let writes=0;await page.route('**/api/**',r=>{if(r.request().method()!=='GET'){writes++;return r.abort()};return r.fulfill({json:{success:true,items:[],castes:['Kapu'],districts:['Hyderabad']}})});
- await page.goto('/register');await page.getByRole('button',{name:lang==='en'?'Resume':'కొనసాగించండి',exact:true}).click();await page.getByRole('button',{name:lang==='en'?'5-step full registration':'5-దశల పూర్తి నమోదు',exact:true}).click();await page.getByRole('button',{name:lang==='en'?'Complete registration':'నమోదు పూర్తి చేయండి',exact:true}).click();
+ await page.goto(localeHref('/register',lang));await page.getByRole('button',{name:lang==='en'?'Resume':'కొనసాగించండి',exact:true}).click();await page.getByRole('button',{name:lang==='en'?'5-step full registration':'5-దశల పూర్తి నమోదు',exact:true}).click();await page.getByRole('button',{name:lang==='en'?'Complete registration':'నమోదు పూర్తి చేయండి',exact:true}).click();
  const error=page.getByText(registrationNameError('Fictional123',lang==='te'),{exact:false});await expect(error).toBeVisible();await expect(page.getByLabel(lang==='en'?'Full Name':'పూర్తి పేరు (Full Name)',{exact:false})).toBeVisible();expect(writes).toBe(0);expect(await page.evaluate(()=>!!localStorage.getItem('shubhalagnam_reg_draft_v6'))).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await error.scrollIntoViewIfNeeded();await page.waitForTimeout(700);await page.screenshot({path:`artifacts/registration-name/name-${lang}-${width}.png`});
 });

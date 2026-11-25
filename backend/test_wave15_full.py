@@ -266,7 +266,7 @@ _pages = set()
 for _root, _, _files in os.walk(os.path.join(ROOT, "frontend", "src", "app")):
     if "page.tsx" in _files:
         _d = os.path.relpath(_root, os.path.join(ROOT, "frontend", "src", "app"))
-        _r = "/" + _d if _d != "." else "/"
+        _r = "/" + "/".join(part for part in _d.split(os.sep) if part != "." and not (part.startswith("(") and part.endswith(")")))
         _r = re.sub(r"\[[^\]]+\]", "*", _r)
         _pages.add(_r)
 _links = {}

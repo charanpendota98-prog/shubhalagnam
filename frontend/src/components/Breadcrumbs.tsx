@@ -5,7 +5,7 @@
  * BreadcrumbList JSON-LD (which is always emitted in English for crawlers).
  */
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 export type Crumb = { en: string; te?: string; href?: string };

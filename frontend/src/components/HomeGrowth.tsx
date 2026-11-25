@@ -5,7 +5,7 @@
  * Copy distinguishes member-submitted details from independent identity checks.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Duo, useDuo } from "@/lib/duo";
 import { apiDisplayMessage } from "@/lib/api";
 import { useLang } from "@/lib/lang";

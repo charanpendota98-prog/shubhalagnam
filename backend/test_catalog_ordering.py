@@ -87,7 +87,7 @@ class CatalogOrderingTests(unittest.TestCase):
             labels = subcastes_for("Hindu", caste)
             self.assertEqual(labels, alpha(labels), caste)
             self.assertEqual(len(labels), len(set(labels)), caste)
-        registration_source = (REPO_DIR / "frontend/src/app/register/page-client.tsx").read_text(encoding="utf-8")
+        registration_source = (REPO_DIR / "frontend/src/app/(telugu)/register/page-client.tsx").read_text(encoding="utf-8")
         self.assertIn("sortUniqueOptions([...values, OTHER_COMMUNITY_OPTION])", registration_source)
 
     def test_legacy_district_spellings_normalize_to_canonical_options(self) -> None:

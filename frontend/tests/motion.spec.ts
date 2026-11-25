@@ -44,15 +44,15 @@ async function scrollThrough(page: Page) {
   await page.evaluate(async () => {
     let height = 0;
     for (let pass = 0; pass < 4; pass += 1) {
-      for (let y = 0; y < document.body.scrollHeight; y += 400) {
-        window.scrollTo(0, y);
+      for (let y = 0; y < document.body.scrollHeight; y += Math.min(200, Math.floor(innerHeight/4))) {
+        window.scrollTo({top:y,behavior:"instant"});
         await new Promise((resolve) => setTimeout(resolve, 55));
       }
       await new Promise((resolve) => setTimeout(resolve, 300));
       if (document.body.scrollHeight === height) break;
       height = document.body.scrollHeight;
     }
-    window.scrollTo(0, document.body.scrollHeight);
+    window.scrollTo({top:document.body.scrollHeight,behavior:"instant"});
   });
   await page.waitForTimeout(1200);
 }
@@ -100,16 +100,23 @@ for (const viewport of VIEWPORTS) {
         await page.goto(route, { waitUntil: "domcontentloaded" });
         await settle(page);
         await scrollThrough(page);
+        // Streaming sections and image reflow can move a short block between sweep steps.
+        // Visit every remaining block directly before checking final visibility.
+        for(const node of await page.locator('.reveal:not(.is-visible)').all()){
+          await node.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+          await page.waitForTimeout(150);
+        }
+        await page.waitForTimeout(1500);
 
-        const stuck = await page.evaluate(() =>
+        const stuck = () => page.evaluate(() =>
           [...document.querySelectorAll<HTMLElement>(".reveal")]
             .filter((element) => Number(getComputedStyle(element).opacity) < 0.95)
             .map((element) => ({
-              cls: element.className.slice(0, 48),
+              cls: element.className.slice(0, 48),text:element.textContent?.slice(0,90),height:element.getBoundingClientRect().height,
               top: Math.round(element.getBoundingClientRect().top),
             })),
         );
-        expect(stuck, `${route} at ${viewport.name}px left ${stuck.length} sections invisible`).toEqual([]);
+        await expect.poll(stuck, {message:`${route} at ${viewport.name}px must reveal every section`,timeout:5000}).toEqual([]);
       }
     });
 

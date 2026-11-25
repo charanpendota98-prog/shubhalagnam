@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 const candidate={tsap_id:'TEST-MODAL',full_name:'Fictional Modal Candidate',age:28,gender:'Bride',district:'Hyderabad',salary:'6 LPA',gothram:'Kashyapa'};
@@ -5,7 +6,7 @@ for(const route of ['matches','profile'])for(const lang of ['en','te'])for(const
  await page.setViewportSize({width,height:900});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);
  const writes:string[]=[];const popups:string[]=[];page.on('popup',p=>popups.push(p.url()));
  await page.route('**/api/**',r=>{if(r.request().method()!=='GET')writes.push(r.request().url());const p=new URL(r.request().url()).pathname;return r.fulfill({json:p==='/api/search'?{results:[candidate],total:1,count:1,offset:0,limit:24}:p.startsWith('/api/search/')?{profile:candidate,quality:{}}:{success:true,valid:false,items:[],saved:[]}})});
- await page.goto(route==='matches'?'/matches':'/search/TEST-MODAL');await page.waitForLoadState('networkidle');
+ await page.goto(localeHref(route==='matches'?'/matches':'/search/TEST-MODAL',lang));await page.waitForLoadState('networkidle');
  const opener=route==='matches'?page.locator('.matches-profile-card').getByRole('button',{name:lang==='en'?/Share on WhatsApp/:/WhatsApp షేర్|వాట్సాప్‌లో పంచుకోండి/}):page.getByRole('button',{name:lang==='en'?/WhatsApp Proposal Share/:/వాట్సాప్ ప్రపోజల్ షేర్/});
  await page.addStyleTag({content:'html,body{scroll-behavior:auto!important}'});await expect(opener).toBeVisible();await expect.poll(()=>writes.filter(x=>!x.endsWith('/api/view')).length).toBe(0);await opener.evaluate((e:HTMLElement)=>e.scrollIntoView({block:"center",behavior:"instant"}));await opener.focus();await expect(opener).toBeFocused();const overflow=await page.evaluate(()=>document.body.style.overflow);await page.keyboard.press('Enter');
  const dialog=page.getByRole('dialog',{name:lang==='en'?'Share WhatsApp Proposal':'వాట్సాప్‌లో పంచుకోండి',exact:true});await expect(dialog).toBeVisible();expect(await dialog.evaluate(e=>e.matches(':modal'))).toBe(true);await expect(dialog).toHaveAttribute('aria-describedby',/.+/);
@@ -19,5 +20,5 @@ for(const route of ['matches','profile'])for(const lang of ['en','te'])for(const
  await page.keyboard.press('Enter');await expect(dialog).toBeVisible();await expect(close).toBeFocused();await close.click();await expect(dialog).not.toBeVisible();await expect(opener).toBeFocused();expect(await page.evaluate(()=>document.body.style.overflow)).toBe(overflow);expect(writes.filter(x=>!x.endsWith('/api/view'))).toEqual([]);expect(writes.filter(x=>x.endsWith('/api/view')).length).toBeLessThanOrEqual(route==='profile'?1:0);expect(popups).toEqual([]);
 });
 test('proposal modal is named and has no serious accessibility violations',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));await page.route('**/api/**',r=>r.fulfill({json:r.request().url().includes('/api/search?')?{results:[candidate],total:1,count:1,offset:0,limit:24}:{success:true,valid:false}}));await page.goto('/matches');await page.locator('.matches-profile-card').getByRole('button',{name:/Share on WhatsApp/}).click();await expect(page.getByRole('dialog')).toBeVisible();const a=await new AxeBuilder({page}).include('dialog').analyze();expect(a.violations.filter(v=>['serious','critical'].includes(v.impact||''))).toEqual([]);
+ await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));await page.route('**/api/**',r=>r.fulfill({json:r.request().url().includes('/api/search?')?{results:[candidate],total:1,count:1,offset:0,limit:24}:{success:true,valid:false}}));await page.goto(localeHref('/matches',"en"));await page.locator('.matches-profile-card').getByRole('button',{name:/Share on WhatsApp/}).click();await expect(page.getByRole('dialog')).toBeVisible();const a=await new AxeBuilder({page}).include('dialog').analyze();expect(a.violations.filter(v=>['serious','critical'].includes(v.impact||''))).toEqual([]);
 });

@@ -130,27 +130,27 @@ for fp in tsx_files():
                 slang_hits.append((rel, tok))
 # precise recheck for kavali (comment-only allowed)
 slang_hits = [(r, t) for r, t in slang_hits
-              if not (t == "kavali" and r in ("app/growth/page.tsx", "app/register/page.tsx", "app/referral/page.tsx"))]
+              if not (t == "kavali" and r in ("app/(telugu)/growth/page.tsx", "app/(telugu)/register/page.tsx", "app/(telugu)/referral/page.tsx"))]
 check("N1.1 zero slang tokens in visible tsx", not slang_hits, slang_hits[:8])
 
 section("N2 te/en toggle on every client page")
 PAGES = [
-    "app/page.tsx", "app/matches/page.tsx", "app/requests/page.tsx",
-    "app/register/page.tsx", "app/login/page.tsx",
-    "app/search/[id]/ProfileView.tsx", "app/channels/page.tsx",
-    "app/stories/stories-client.tsx", "app/pricing/page.tsx",
-    "app/bureau/page.tsx", "app/referral/page.tsx",
-    "app/referral/register/page.tsx", "app/vendors/page.tsx",
-    "app/vendors/[id]/page.tsx", "app/vendors/campaign/page.tsx",
-    "app/vendors/register/page.tsx",
-    "app/porutham/page.tsx", "app/growth/page.tsx",
-    "app/castes/castes-client.tsx", "app/castes/[slug]/caste-client.tsx",
-    "app/safety/page.tsx",
-    "app/r/[code]/page.tsx", "app/verify/page.tsx",
-    "app/admin/page.tsx", "app/admin/photos/page.tsx",
-    "app/terms/page.tsx", "app/privacy/page.tsx", "app/refund/page.tsx",
-    "app/offline/page.tsx", "app/p/[slug]/page.tsx",
-    "app/error.tsx", "app/not-found.tsx",
+    "app/(telugu)/home-client.tsx", "app/(telugu)/matches/page.tsx", "app/(telugu)/requests/page.tsx",
+    "app/(telugu)/register/page.tsx", "app/(telugu)/login/page.tsx",
+    "app/(telugu)/search/[id]/ProfileView.tsx", "app/(telugu)/channels/page.tsx",
+    "app/(telugu)/stories/stories-client.tsx", "app/(telugu)/pricing/page.tsx",
+    "app/(telugu)/bureau/page.tsx", "app/(telugu)/referral/page.tsx",
+    "app/(telugu)/referral/register/page.tsx", "app/(telugu)/vendors/page.tsx",
+    "app/(telugu)/vendors/[id]/page.tsx", "app/(telugu)/vendors/campaign/page.tsx",
+    "app/(telugu)/vendors/register/page.tsx",
+    "app/(telugu)/porutham/page.tsx", "app/(telugu)/growth/page.tsx",
+    "app/(telugu)/castes/castes-client.tsx", "app/(telugu)/castes/[slug]/caste-client.tsx",
+    "app/(telugu)/safety/page.tsx",
+    "app/(telugu)/r/[code]/page.tsx", "app/(telugu)/verify/page.tsx",
+    "app/(telugu)/admin/page.tsx", "app/(telugu)/admin/photos/page.tsx",
+    "app/(telugu)/terms/page.tsx", "app/(telugu)/privacy/page.tsx", "app/(telugu)/refund/page.tsx",
+    "app/(telugu)/offline/page.tsx", "app/(telugu)/p/[slug]/page.tsx",
+    "app/(telugu)/error.tsx", "app/(telugu)/not-found.tsx",
     "components/FeaturedStories.tsx", "components/TrustBadge.tsx", "components/BannerSlot.tsx",
 ]
 missing = []
@@ -182,21 +182,21 @@ for pg in PAGES:
 check("N2.1 all client pages lang-aware", not missing, missing[:6])
 
 section("N3 no-demo")
-login_src = src_page("frontend/src/app/login/page.tsx")
-matches_src = src_page("frontend/src/app/matches/page.tsx")
-referral_src = src_page("frontend/src/app/referral/page.tsx")
-nf_src = src_page("frontend/src/app/not-found.tsx")
+login_src = src_page("frontend/src/app/(telugu)/login/page.tsx")
+matches_src = src_page("frontend/src/app/(telugu)/matches/page.tsx")
+referral_src = src_page("frontend/src/app/(telugu)/referral/page.tsx")
+nf_src = src_page("frontend/src/app/(telugu)/not-found.tsx")
 check("N3.1 login has no demo UI", "demoLogin" not in login_src and "Demo login" not in login_src)
 check("N3.2 matches has no demo rows", "DEMO" not in visible_text(matches_src).upper().replace("NO DEMO", ""))
 check("N3.3 referral has no DEMO_ID", "DEMO_ID" not in referral_src)
 check("N3.4 not-found has no stale count claim", "76+" not in nf_src and "76" not in nf_src)
 check("N3.5 layout metadata clean", all(
-    t not in src_page("frontend/src/app/layout.tsx")
+    t not in src_page("frontend/src/components/StaticLocaleShell.tsx")
     for t in ("ke Sambandham", "Modati", "modati", "3 numbers FREE", "lo register")))
 
 section("N4 smooth scroll + BackToTop")
 css = src_page("frontend/src/app/globals.css")
-layout = src_page("frontend/src/app/layout.tsx")
+layout = src_page("frontend/src/components/StaticLocaleShell.tsx")
 check("N4.1 smooth scroll", "scroll-behavior: smooth" in css)
 check("N4.2 anchor offset", "scroll-padding-top" in css)
 check("N4.3 BackToTop mounted", "BackToTop" in layout
@@ -298,7 +298,7 @@ check("N9.4 no ke Sambandham anywhere backend",
       "ke Sambandham" not in _full.replace("99keSambandham", ""))
 
 section("N8 no synthetic homepage previews")
-home_src = src_page("frontend/src/app/page.tsx")
+home_src = src_page("frontend/src/app/(telugu)/home-client.tsx")
 hero_src = src_page("frontend/src/components/CinematicHero.tsx")
 check("N8.1 homepage has no simulated notification/profile-card preview",
       "notification preview" not in home_src.lower()
@@ -310,7 +310,7 @@ check("N8.4 cinematic hero ships no video or stock photo bytes",
       ".mp4" not in hero_src and "<video" not in hero_src
       and "/promo/" not in hero_src and "mv-hero__stage" in hero_src)
 check("N8.3 no No.1 claims", "No.1" not in home_src
-      and "No.1" not in src_page("frontend/src/app/layout.tsx")
+      and "No.1" not in src_page("frontend/src/components/StaticLocaleShell.tsx")
       and "No.1" not in footer_src)
 
 print(f"\n{'=' * 60}\n🌊 WAVE 31 NEAT: {PASS} passed, {FAIL} failed")

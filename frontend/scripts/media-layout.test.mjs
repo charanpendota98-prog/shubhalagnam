@@ -17,7 +17,7 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const css = fs.readFileSync(path.join(ROOT, "src/app/globals.css"), "utf8");
 const hero = fs.readFileSync(path.join(ROOT, "src/components/CinematicHero.tsx"), "utf8");
 const story = fs.readFileSync(path.join(ROOT, "src/components/WeddingStorySection.tsx"), "utf8");
-const home = fs.readFileSync(path.join(ROOT, "src/app/page.tsx"), "utf8");
+const home = fs.readFileSync(path.join(ROOT, "src/app/(telugu)/home-client.tsx"), "utf8");
 
 test("the hero ships no video file or remote media", () => {
   assert.doesNotMatch(hero, /\.mp4/);
@@ -55,7 +55,7 @@ test("homepage mounts the content-first story section instead of the photo film"
 });
 
 test("the stories route no longer mounts the AI-photo gallery", () => {
-  const storiesPage = fs.readFileSync(path.join(ROOT, "src/app/stories/page.tsx"), "utf8");
+  const storiesPage = fs.readFileSync(path.join(ROOT, "src/app/(telugu)/stories/page.tsx"), "utf8");
   assert.doesNotMatch(storiesPage, /CinematicGallery/);
 });
 

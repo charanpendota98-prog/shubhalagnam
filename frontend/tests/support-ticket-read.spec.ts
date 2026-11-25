@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
@@ -34,7 +35,7 @@ for (const role of ['member', 'owner']) for (const lang of ['en', 'te']) for (co
       return route.fulfill({ json: { success: true, items: [], tickets: [], appeals: [], appointments: [], refunds: [], holds: [], flags: {}, profiles: [], stories: [], sent: [], received: [], totals: {} } });
     });
     const open = async () => {
-      await page.goto(role === 'member' ? '/me' : '/control', { waitUntil: 'domcontentloaded' });
+      await page.goto(localeHref(role === 'member' ? '/me' : '/control',lang), { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: role === 'member' ? (lang === 'en' ? 'Support' : 'సపోర్ట్ టికెట్లు') : (lang === 'en' ? '🧰 Data tools & daily matches' : '🧰 డేటా టూల్స్ & డైలీ మ్యాచ్‌లు'), exact: true }).click();
     };
     const errorText = role === 'member'

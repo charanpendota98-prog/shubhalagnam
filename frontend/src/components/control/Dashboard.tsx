@@ -14,9 +14,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+
 import { useLang } from "@/lib/lang";
 import { apiDisplayMessage, readApiJson} from "@/lib/api";
 import { SITE_CONFIG } from "@/lib/site-config";
@@ -225,7 +225,7 @@ async function jget(url: string) {
 }
 
 export default function Dashboard() {
-  const router = useRouter();
+  const router = useLocaleRouter();
   const { lang } = useLang();
   const te = lang === "te";
   const L = T[(lang as "te" | "en") in T ? (lang as "te" | "en") : "te"];
@@ -1357,7 +1357,7 @@ export default function Dashboard() {
           {/* Quick Action Buttons Header (WhatsApp + Telegram + Live Site + Refresh) */}
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             {owner && SITE_CONFIG.supportWhatsapp && (
-              <a
+              <LocaleAnchor
                 href={whatsappPhoneLink(SITE_CONFIG.supportWhatsapp, "Namaste Operations Support") || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1366,7 +1366,7 @@ export default function Dashboard() {
               >
                 <span aria-hidden="true">💬</span>
                 <span>WhatsApp</span>
-              </a>
+              </LocaleAnchor>
             )}
             {owner ? (
               <Link
@@ -1609,7 +1609,7 @@ export default function Dashboard() {
 
                       {candidate.phone && (
                         <>
-                          <a
+                          <LocaleAnchor
                             href={whatsappPhoneLink(candidate.phone) || undefined}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1617,14 +1617,14 @@ export default function Dashboard() {
                           >
                             <span>💬</span>
                             <span>WhatsApp</span>
-                          </a>
-                          <a
+                          </LocaleAnchor>
+                          <LocaleAnchor
                             href={`tel:${candidate.phone}`}
                             className="px-3 py-1.5 rounded-xl bg-slate-800 text-white font-extrabold text-[11px] shadow-xs flex items-center gap-1"
                           >
                             <span>📞</span>
                             <span>Call</span>
-                          </a>
+                          </LocaleAnchor>
                         </>
                       )}
                       <button type="button"
@@ -1953,15 +1953,15 @@ export default function Dashboard() {
                           <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             {row.phone && (
                               <>
-                                <a
+                                <LocaleAnchor
                                   href={`tel:${row.phone}`}
                                   className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-white font-bold text-[11px] hover:bg-slate-900 shadow-xs flex items-center gap-1"
                                   title="Call Match"
                                 >
                                   <span>📞</span>
                                   <span>Call</span>
-                                </a>
-                                <a
+                                </LocaleAnchor>
+                                <LocaleAnchor
                                   href={whatsappPhoneLink(row.phone) || undefined}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -1970,13 +1970,13 @@ export default function Dashboard() {
                                 >
                                   <span>💬</span>
                                   <span>Chat</span>
-                                </a>
+                                </LocaleAnchor>
                               </>
                             )}
 
                             {/* Share this match to candidate directly */}
                             {candidate?.phone && (
-                              <a
+                              <LocaleAnchor
                                 href={whatsappPhoneLink(candidate.phone, waShareText) || undefined}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -1985,7 +1985,7 @@ export default function Dashboard() {
                               >
                                 <span>💌</span>
                                 <span>{tr("అభ్యర్థికి పంపండి", "Send to candidate")}</span>
-                              </a>
+                              </LocaleAnchor>
                             )}
 
                             <button type="button"
@@ -2436,18 +2436,18 @@ export default function Dashboard() {
                             <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
                               {/* Direct Call Link */}
                               {p.phone && (
-                                <a
+                                <LocaleAnchor
                                   href={`tel:${p.phone}`}
                                   className="inline-block p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
                                   title="Call Member"
                                 >
                                   📞
-                                </a>
+                                </LocaleAnchor>
                               )}
 
                               {/* WhatsApp Follow-up */}
                               {p.phone && (
-                                <a
+                                <LocaleAnchor
                                   href={whatsappPhoneLink(p.phone, isPaid
                                     ? tr(`నమస్కారం ${p.full_name} గారు! మన వివాహ నుంచి సంప్రదిస్తున్నాం. మీ ప్రొఫైల్ (${p.tsap_id}) గురించి సహాయం కావాలంటే తెలియజేయండి.`, `Hello ${p.full_name}, this is Mana Vivaha. Let us know if you need assistance with your profile (${p.tsap_id}).`)
                                     : tr(`నమస్కారం ${p.full_name} గారు! మన వివాహలో మీ ప్రొఫైల్ (${p.tsap_id}) నమోదు అయింది. ప్రస్తుత సేవలు, ధరల వివరాలకు https://manavivaha.in/pricing చూడండి. ప్రొఫైల్ ఆమోదం లేదా వెరిఫికేషన్‌కు హామీ లేదు; చెల్లింపులు అధికారిక వెబ్‌సైట్ ద్వారా మాత్రమే చేయండి.`, `Hello ${p.full_name}, your profile (${p.tsap_id}) is registered with Mana Vivaha. Current services and prices: https://manavivaha.in/pricing. Profile approval or verification is not guaranteed. Please pay only through the official website.`)) || undefined}
@@ -2457,7 +2457,7 @@ export default function Dashboard() {
                                   title={isPaid ? "WhatsApp Chat" : tr("WhatsApp ఫాలో-అప్", "WhatsApp follow-up")}
                                 >
                                   💬
-                                </a>
+                                </LocaleAnchor>
                               )}
 
                               {/* Matchmaker */}
@@ -2733,28 +2733,28 @@ export default function Dashboard() {
                   </p>
                   <div className="pt-1 flex flex-wrap gap-1">
                     {c.channel_bride ? (
-                      <a
+                      <LocaleAnchor
                         href={`https://t.me/${encodeURIComponent(c.channel_bride)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 min-w-[7rem] py-2 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
                       >
                         📢 {te ? "వధువుల listing" : "Brides listing"}
-                      </a>
+                      </LocaleAnchor>
                     ) : (
                       <span className="flex-1 min-w-[7rem] py-2 text-center text-[10px] text-slate-500 rounded-lg bg-slate-50">
                         {te ? "వధువుల destination లేదు" : "No brides destination"}
                       </span>
                     )}
                     {c.channel_groom ? (
-                      <a
+                      <LocaleAnchor
                         href={`https://t.me/${encodeURIComponent(c.channel_groom)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 min-w-[7rem] py-2 text-center text-[10px] font-bold bg-[#229ED9] text-white rounded-lg"
                       >
                         📢 {te ? "వరుల listing" : "Grooms listing"}
-                      </a>
+                      </LocaleAnchor>
                     ) : (
                       <span className="flex-1 min-w-[7rem] py-2 text-center text-[10px] text-slate-500 rounded-lg bg-slate-50">
                         {te ? "వరుల destination లేదు" : "No grooms destination"}
@@ -3241,8 +3241,8 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="break-words rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">{sp.headline || "—"}<br />{sp.pitch_text || "—"}</p>
-                      {sp.photo_url && <a className="break-all text-xs font-bold text-maroon underline" href={sp.photo_url} target="_blank" rel="noopener noreferrer">{te ? "ఫోటో చూడండి" : "Review photo"}</a>}
-                      {sp.video_url && <a className="ml-3 break-all text-xs font-bold text-maroon underline" href={sp.video_url} target="_blank" rel="noopener noreferrer">{te ? "వీడియో చూడండి" : "Review video"}</a>}
+                      {sp.photo_url && <LocaleAnchor className="break-all text-xs font-bold text-maroon underline" href={sp.photo_url} target="_blank" rel="noopener noreferrer">{te ? "ఫోటో చూడండి" : "Review photo"}</LocaleAnchor>}
+                      {sp.video_url && <LocaleAnchor className="ml-3 break-all text-xs font-bold text-maroon underline" href={sp.video_url} target="_blank" rel="noopener noreferrer">{te ? "వీడియో చూడండి" : "Review video"}</LocaleAnchor>}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
                         <div className="font-bold text-slate-700">{te ? "చెల్లింపు UTR" : "Payment UTR"}</div>
                         <div className="mt-1 break-all font-mono">{sp.payment_ref || (te ? "సమర్పించలేదు" : "Not submitted")}</div>
@@ -3499,14 +3499,14 @@ export default function Dashboard() {
                             <div className="flex gap-2">
                               {/* 1-Tap Mobile UPI App Deep-Link */}
                               {directUpiLink && (
-                                <a
+                                <LocaleAnchor
                                   href={directUpiLink}
                                   className="flex-1 py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
                                   title="Open in PhonePe / Google Pay with prefilled amount"
                                 >
                                   <span>📲</span>
                                   <span>{tr(`PhonePe / Google Pay ద్వారా చెల్లించండి (₹${po.amount})`, `Pay via PhonePe / Google Pay (₹${po.amount})`)}</span>
-                                </a>
+                                </LocaleAnchor>
                               )}
                             </div>
 
@@ -3543,7 +3543,7 @@ export default function Dashboard() {
                         {/* WhatsApp Notification Button for Paid Requests */}
                         {isPaid && payoutWaLink && (
                           <div className="pt-1">
-                            <a
+                            <LocaleAnchor
                               href={payoutWaLink}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -3551,7 +3551,7 @@ export default function Dashboard() {
                             >
                               <span>💬</span>
                               <span>{tr("వినియోగదారుకు WhatsApp చెల్లింపు సమాచారం పంపండి", "Send payout details on WhatsApp")}</span>
-                            </a>
+                            </LocaleAnchor>
                           </div>
                         )}
                       </div>
@@ -4058,7 +4058,7 @@ export default function Dashboard() {
                 {tr("ముగించు", "Close")}
               </button>
               {activatedSuccessModal.phone && (
-                <a
+                <LocaleAnchor
                   href={whatsappPhoneLink(activatedSuccessModal.phone, activatedSuccessModal.waMessage) || undefined}
                   target="_blank"
                   rel="noreferrer"
@@ -4067,7 +4067,7 @@ export default function Dashboard() {
                 >
                   <span>💬</span>
                   <span>{tr("WhatsApp ద్వారా పంపండి", "Send on WhatsApp")}</span>
-                </a>
+                </LocaleAnchor>
               )}
             </div>
           </div>
@@ -4251,7 +4251,7 @@ export default function Dashboard() {
               >
                 📋 {tr("టెక్స్ట్ కాపీ చేయండి", "Copy text")}
               </button>
-              <a
+              <LocaleAnchor
                 href={whatsappPhoneLink(proposalBatchModal.recipientPhone,
                   buildProposalText(
                     proposalBatchModal.candidate,
@@ -4266,7 +4266,7 @@ export default function Dashboard() {
               >
                 <span>💬</span>
                 <span>{tr("WhatsApp ద్వారా పంపండి", "Send on WhatsApp")}</span>
-              </a>
+              </LocaleAnchor>
             </div>
           </div>
         </div>
@@ -4434,41 +4434,41 @@ export default function Dashboard() {
               <div className="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <span className="text-[11px] font-bold text-slate-600 block">⚡ {tr("WhatsApp సందేశ టెంప్లేట్‌లు:", "WhatsApp message templates:")}</span>
                 <div className="flex flex-wrap gap-1.5">
-                  <a
+                  <LocaleAnchor
                     href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nమన వివాహ (Mana Vivaha) నుంచి సంప్రదిస్తున్నాం. ప్రొఫైల్‌ను స్పష్టంగా చూపించడానికి మీకు ఇష్టమైతే ఫోటోను అప్‌లోడ్ చేయండి:\nhttps://manavivaha.in/me`, `💐 Hello ${counselorModal.name}, this is Mana Vivaha. If you wish, you can add a photo to your profile to help members review it:\nhttps://manavivaha.in/me`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
                     <span>📸</span> <span>{tr("ఫోటో గురించి", "Photo reminder")}</span>
-                  </a>
+                  </LocaleAnchor>
 
-                  <a
+                  <LocaleAnchor
                     href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nజాతక reference కోసం మీకు తెలిసిన నక్షత్రం, రాశి మరియు గోత్రం వివరాలను ఇక్కడ నవీకరించండి. ఇవి verified chart కాదు:\nhttps://manavivaha.in/me`, `💐 Hello ${counselorModal.name}, you can update your known nakshatram, rasi, and gothram details here as member-entered references; they are not a verified chart:\nhttps://manavivaha.in/me`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
                     <span>🪔</span> <span>{tr("జాతక వివరాలు", "Horoscope details")}</span>
-                  </a>
+                  </LocaleAnchor>
 
-                  <a
+                  <LocaleAnchor
                     href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nప్రస్తుత ప్లాన్ వివరాలను ఇక్కడ చూడండి. సంప్రదింపు వివరాల ప్రాప్యత సమ్మతి మరియు సేవా నిబంధనలకు లోబడి ఉంటుంది; సంబంధం లేదా ధృవీకరణకు హామీ లేదు:\nhttps://manavivaha.in/pricing`, `💐 Hello ${counselorModal.name}, view current plans and prices here. Access to contact details is subject to consent and service terms; no match or verification is guaranteed:\nhttps://manavivaha.in/pricing`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
                     <span>👑</span> <span>{tr("₹99 నుంచి ప్లాన్‌లు", "Plans from ₹99")}</span>
-                  </a>
+                  </LocaleAnchor>
 
-                  <a
+                  <LocaleAnchor
                     href={whatsappPhoneLink(counselorModal.phone, tr(`💐 నమస్కారం ${counselorModal.name} గారు!\nమీకు చూపిన ప్రొఫైల్‌లను ఇక్కడ పరిశీలించండి:\nhttps://manavivaha.in/matches`, `💐 Hello ${counselorModal.name}, review the profiles shown to you here:\nhttps://manavivaha.in/matches`)) || undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="px-2.5 py-1 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-900 text-[11px] font-bold flex items-center gap-1 transition"
                   >
                     <span>💍</span> <span>{tr("ప్రొఫైల్‌లను చూడండి", "Browse profiles")}</span>
-                  </a>
+                  </LocaleAnchor>
                 </div>
               </div>
             )}
@@ -4589,3 +4589,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
+import {useLocaleRouter} from "@/lib/locale-navigation";
+
+import LocaleAnchor from "@/components/LocaleAnchor";

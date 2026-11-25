@@ -1,0 +1,1364 @@
+[
+  {
+    "file": "tests/a11y.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/accept-next-steps.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-content-icons.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-icon-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/account-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/alert-preference-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/alert-preference-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/appeal-resolution-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/assist-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/biodata-long-name.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/biodata-religion-contract.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/biodata-religion-output.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/block-checkpoint-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/briefing-portable-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/campaign-request-recovery.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/campaign-response-integrity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/community-discovery-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/community-landing-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/contact-qr.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/cookie-session-saved-search.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/creator-campaigns.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/credit-receipt-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/current-wedding-hero.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/device-session-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/discovery-navigation-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/discovery-utilities-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/editorial-community-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/elder-note-privacy-warning.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/events-rsvp-review.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/export-download-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/factual-policy-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/final-connected-review.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/fresh-user-bugs.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/header-fit.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/hero-wedding-motion.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/home-biodata-empty.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/home-search-telugu.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/login-confirmation-integrity.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/login-presentation-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/login-response-ownership.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/login-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/logout-device-status.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/match-card-actions.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/match-filter-career.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/match-range-controls.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/matches-toolbar-fit.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/matches-workspace-preview.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/member-tab-labels.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/menu-core-destinations.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/missing-options-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/mobile-filter-registration.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/original-home-editorial.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/owner-command-center.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/partner-preferences-lifecycle.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/partner-preferences-ranges.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/partner-referral-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/partner-registration-integrity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/photo-permission-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/photo-review-revision.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/private-offline-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/private-photo-consent.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-action-targets.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-editor-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-guidance-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-safety-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-shortlist-state.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-unavailable-heading.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/profile-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-factual-wording.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-modal-keyboard.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-preview-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/proposal-ui-clarity.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/pwa-cache-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/pwa-guidance-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/recovery-password-length.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/referral-landing-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/referral-landing-presentation.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/referral-payout-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/referral-pro-acceptance.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/register-religion-fields.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/register-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-form-portability.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-name-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-referral-confirmation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/registration-referral-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/religion-scope.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/remarriage-filters.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/request-contact-labels.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/request-credit-policy.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/requests-error-portability.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/requests-workspace-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/resilience-presentation.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/restricted-operations-preview.spec.ts",
+    "gotos": 7
+  },
+  {
+    "file": "tests/safety-block-list-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-factual-copy.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-scam-guide.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/safety-session-owner.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-layer.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-read-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/saved-search-retry.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/saved-search-write-integrity.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/secondary-account-reads.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/selfie-review-state.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shared-landmarks.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shortlist-intent.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/shortlist-read-integrity.spec.ts",
+    "gotos": 4
+  },
+  {
+    "file": "tests/static-main-content.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/support-ticket-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/support-ticket-read.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/trust-pages-preview.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/verification-auth-svg.spec.ts",
+    "gotos": 3
+  },
+  {
+    "file": "tests/verification-parity-fallback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/verification-review-feedback.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/verification-session-owner.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/wedding-preview.spec.ts",
+    "gotos": 2
+  },
+  {
+    "file": "tests/wedding-tools-export-accessibility.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/wedding-tools-preview.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/workspace-heading-ownership.spec.ts",
+    "gotos": 1
+  },
+  {
+    "file": "tests/briefing-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/compare-read-integrity.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/creator-club.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/login-confirmation-status.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/match-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/member-activity-read.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/partner-dashboard-response-integrity.spec.ts",
+    "calls": 3
+  },
+  {
+    "file": "tests/partner-payout-acknowledgement.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/partner-private-isolation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/passkey-login-contract.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/payment-panel.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/photo-face-eligibility.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/profile-editor-completion.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/proposal-action-feedback.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/referral-highlight.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/referral-payout-acknowledgement.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/referral-refresh.spec.ts",
+    "calls": 3
+  },
+  {
+    "file": "tests/register-submit-preview.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-confirmation-integrity.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-email-confirmation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-email-resend.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-passkey-capabilities.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-passkey-confirmation.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/registration-result-portability.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "tests/requests-read-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/requests-secondary-integrity.spec.ts",
+    "calls": 2
+  },
+  {
+    "file": "tests/shortlist-write-integrity.spec.ts",
+    "calls": 1
+  },
+  {
+    "file": "a11y.spec.ts",
+    "goto": "route",
+    "unresolved": true
+  },
+  {
+    "file": "a11y.spec.ts",
+    "goto": "\"/\"",
+    "unresolved": true
+  },
+  {
+    "file": "alert-preference-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "biodata-export-origin.spec.ts",
+    "goto": "'/biodata'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "biodata-religion-contract.spec.ts",
+    "goto": "'/biodata'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral?id=UI164'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-request-recovery.spec.ts",
+    "goto": "'/referral/register'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-response-integrity.spec.ts",
+    "goto": "'/referral?id=UI165'",
+    "unresolved": true
+  },
+  {
+    "file": "campaign-telugu-clarity.spec.ts",
+    "goto": "'/referral?id=UI166'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "control-bureaus.spec.ts",
+    "goto": "'/control'",
+    "locale": "lang"
+  },
+  {
+    "file": "control-bureaus.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "\"/referral?id=UI01\"",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "`/r/CREATOR?campaign=${token}&inv=INVITE01`",
+    "unresolved": true
+  },
+  {
+    "file": "creator-campaigns.spec.ts",
+    "goto": "\"/referral/register\"",
+    "locale": "\"en\""
+  },
+  {
+    "file": "credit-receipt-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "device-session-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/search/ISOLATED-BRIDE'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "final-package-acceptance.spec.ts",
+    "goto": "'/requests'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/admin/photos'",
+    "unresolved": true
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "goto": "'/spotlight'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "growth-error-state.spec.ts",
+    "goto": "'/growth'",
+    "unresolved": true
+  },
+  {
+    "file": "hero-artwork.spec.ts",
+    "goto": "\"/\"",
+    "locale": "lang"
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "hero-wedding-motion.spec.ts",
+    "goto": "'/'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "login-response-ownership.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "login-workspace-preview.spec.ts",
+    "goto": "'/login'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "goto": "'/matches'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "owner-command-center.spec.ts",
+    "goto": "'/control'",
+    "unresolved": true
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "partner-registration-integrity.spec.ts",
+    "goto": "'/referral/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "photo-permission-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "goto": "'/offline'",
+    "unresolved": true
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "goto": "'/preview-never-cached-page'",
+    "unresolved": true
+  },
+  {
+    "file": "profile-action-targets.spec.ts",
+    "goto": "'/search/FIRST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-editor-read.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-guidance-portability.spec.ts",
+    "goto": "'/search/FIRST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-shortlist-state.spec.ts",
+    "goto": "'/search/FICTIONAL'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "profile-workspace-preview.spec.ts",
+    "goto": "'/search/DEMO_REVIEW'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "proposal-modal-keyboard.spec.ts",
+    "goto": "'/matches'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "referral-landing-integrity.spec.ts",
+    "goto": "`/r/TESTCODE?inv=INVITE01&campaign=${campaign}`",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "register-religion-fields.spec.ts",
+    "goto": "'/register'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "registration-referral-confirmation.spec.ts",
+    "goto": "'/register?ref=MVREFTEST'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "religion-scope.spec.ts",
+    "goto": "'/channels'",
+    "locale": "\"te\""
+  },
+  {
+    "file": "requests-workspace-preview.spec.ts",
+    "goto": "'/requests'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "restricted-operations-preview.spec.ts",
+    "goto": "'/owner'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-block-list-read.spec.ts",
+    "goto": "'/safety'",
+    "unresolved": true
+  },
+  {
+    "file": "safety-session-owner.spec.ts",
+    "goto": "'/safety'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "saved-search-read-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "saved-search-write-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "saved-search-write-integrity.spec.ts",
+    "goto": "'/saved-searches'",
+    "unresolved": true
+  },
+  {
+    "file": "secondary-account-reads.spec.ts",
+    "goto": "'/me'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "shortlist-read-integrity.spec.ts",
+    "goto": "'/shortlist'",
+    "unresolved": true
+  },
+  {
+    "file": "static-main-content.spec.ts",
+    "goto": "baseURL+route",
+    "unresolved": true
+  },
+  {
+    "file": "verification-session-owner.spec.ts",
+    "goto": "'/verify?id=URL_WRONG'",
+    "locale": "\"en\""
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "wedding-preview.spec.ts",
+    "goto": "'/'",
+    "unresolved": true
+  },
+  {
+    "file": "accept-next-steps.spec.ts",
+    "line": 24,
+    "old": "/safety",
+    "replacement": "localeHref(\"/safety\",lang)"
+  },
+  {
+    "file": "briefing-portable-copy.spec.ts",
+    "line": 16,
+    "old": "a[href=\"/search/TEST-CANDIDATE\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/TEST-CANDIDATE\",lang)}\"]`"
+  },
+  {
+    "file": "briefing-portable-copy.spec.ts",
+    "line": 16,
+    "old": "a[href=\"/requests\"]",
+    "replacement": "`a[href=\"${localeHref(\"/requests\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 22,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 22,
+    "old": "a[href=\"/search/FICTIONAL-C\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-C\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 23,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 23,
+    "old": "a[href=\"/search/FICTIONAL-B\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-B\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 24,
+    "old": "a[href=\"/search/FICTIONAL-C\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-C\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 26,
+    "old": "a[href=\"/search/FICTIONAL-A\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-A\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 28,
+    "old": "a[href=\"/matches?district=Hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/matches?district=Hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 30,
+    "old": "a[href=\"/castes/brahmin-groom-hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/castes/brahmin-groom-hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-discovery-preview.spec.ts",
+    "line": 30,
+    "old": "a[href=\"/castes/brahmin-groom-hyderabad\"]",
+    "replacement": "`a[href=\"${localeHref(\"/castes/brahmin-groom-hyderabad\",lang)}\"]`"
+  },
+  {
+    "file": "community-landing-copy.spec.ts",
+    "line": 4,
+    "old": "/pricing",
+    "replacement": "localeHref(\"/pricing\",lang)"
+  },
+  {
+    "file": "current-wedding-hero.spec.ts",
+    "line": 18,
+    "old": "a[href=\"/register\"]",
+    "replacement": "`a[href=\"${localeHref(\"/register\",lang)}\"]`"
+  },
+  {
+    "file": "current-wedding-hero.spec.ts",
+    "line": 18,
+    "old": "a[href=\"/matches\"]",
+    "replacement": "`a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 5,
+    "old": "#mobile-menu a[href=\"/compare\"]",
+    "replacement": "`#mobile-menu a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 5,
+    "old": "#desktop-more-menu a[href=\"/compare\"]",
+    "replacement": "`#desktop-more-menu a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 6,
+    "old": "footer a[href=\"/matches\"]",
+    "replacement": "`footer a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-navigation-preview.spec.ts",
+    "line": 6,
+    "old": ".mobile-bottom-nav a[href=\"/matches\"]",
+    "replacement": "`.mobile-bottom-nav a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "discovery-utilities-preview.spec.ts",
+    "line": 21,
+    "old": "/login",
+    "replacement": "localeHref(\"/login\",lang)"
+  },
+  {
+    "file": "editorial-community-preview.spec.ts",
+    "line": 31,
+    "old": "a[href=\"/p/fictional-related\"]",
+    "replacement": "`a[href=\"${localeHref(\"/p/fictional-related\",lang)}\"]`"
+  },
+  {
+    "file": "final-connected-review.spec.ts",
+    "line": 20,
+    "old": "a[href=\"/search/FICTIONAL-CANDIDATE\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/FICTIONAL-CANDIDATE\",lang)}\"]`"
+  },
+  {
+    "file": "fresh-user-bugs.spec.ts",
+    "line": 12,
+    "old": "/en/control/login",
+    "replacement": "localeHref(\"/en/control/login\",\"en\")"
+  },
+  {
+    "file": "login-presentation-portability.spec.ts",
+    "line": 13,
+    "old": "/safety",
+    "replacement": "localeHref(\"/safety\",lang)"
+  },
+  {
+    "file": "logout-device-status.spec.ts",
+    "line": 13,
+    "old": "/login",
+    "replacement": "localeHref(\"/login\",lang)"
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "line": 11,
+    "old": "a[href=\"/search/TEST-CARD\"]",
+    "replacement": "`a[href=\"${localeHref(\"/search/TEST-CARD\",lang)}\"]`"
+  },
+  {
+    "file": "match-card-actions.spec.ts",
+    "line": 11,
+    "old": "a[href=\"/biodata?id=TEST-CARD\"]",
+    "replacement": "`a[href=\"${localeHref(\"/biodata?id=TEST-CARD\",lang)}\"]`"
+  },
+  {
+    "file": "matches-workspace-preview.spec.ts",
+    "line": 12,
+    "old": "/search/DEMO-REVIEW-A",
+    "replacement": "localeHref(\"/search/DEMO-REVIEW-A\",lang)"
+  },
+  {
+    "file": "menu-core-destinations.spec.ts",
+    "line": 9,
+    "old": "a[href=\"/compare\"]",
+    "replacement": "`a[href=\"${localeHref(\"/compare\",lang)}\"]`"
+  },
+  {
+    "file": "menu-core-destinations.spec.ts",
+    "line": 16,
+    "old": "/me",
+    "replacement": "localeHref(\"/me\",lang)"
+  },
+  {
+    "file": "original-home-editorial.spec.ts",
+    "line": 3,
+    "old": "/pelli-choopulu",
+    "replacement": "localeHref(\"/pelli-choopulu\",lang)"
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "line": 16,
+    "old": "/",
+    "replacement": "localeHref(\"/\",lang)"
+  },
+  {
+    "file": "private-offline-preview.spec.ts",
+    "line": 16,
+    "old": "/matches",
+    "replacement": "localeHref(\"/matches\",lang)"
+  },
+  {
+    "file": "profile-unavailable-heading.spec.ts",
+    "line": 9,
+    "old": ".mv-profile-workspace a[href=\"/matches\"]",
+    "replacement": "`.mv-profile-workspace a[href=\"${localeHref(\"/matches\",lang)}\"]`"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 11,
+    "old": "/register",
+    "replacement": "localeHref(\"/register\",lang)"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 13,
+    "old": "/register",
+    "replacement": "localeHref(\"/register\",lang)"
+  },
+  {
+    "file": "referral-landing-presentation.spec.ts",
+    "line": 15,
+    "old": "/register?ref=TESTCODE&inv=INVITE01&campaign=AAAAAAAAAAAAAAAAAAAAAAAA",
+    "replacement": "localeHref(\"/register?ref=TESTCODE&inv=INVITE01&campaign=AAAAAAAAAAAAAAAAAAAAAAAA\",lang)"
+  },
+  {
+    "file": "requests-error-portability.spec.ts",
+    "line": 54,
+    "old": "/",
+    "replacement": "localeHref(\"/\",lang)"
+  },
+  {
+    "file": "trust-pages-preview.spec.ts",
+    "line": 23,
+    "old": ".mv-trust-workspace a[href=\"/safety\"]",
+    "replacement": "`.mv-trust-workspace a[href=\"${localeHref(\"/safety\",lang)}\"]`"
+  },
+  {
+    "file": "trust-pages-preview.spec.ts",
+    "line": 24,
+    "old": ".mv-trust-workspace a[href=\"/verify\"]",
+    "replacement": "`.mv-trust-workspace a[href=\"${localeHref(\"/verify\",lang)}\"]`"
+  },
+  {
+    "file": "tests/fresh-user-bugs.spec.ts",
+    "decision": "Fixed-English photos cases navigate /en; explicit Telugu spotlight fixture keeps unprefixed URL. Empty successful queue includes count=0 per response contract."
+  },
+  {
+    "file": "tests/owner-command-center.spec.ts",
+    "decision": "Photo review link expectation follows explicit locale; fixed-English fixture opens /en/control."
+  },
+  {
+    "file": "tests/briefing-read-integrity.spec.ts",
+    "decision": "Reopen collapsed account activity after cross-root language navigation; keep stale-response assertion."
+  },
+  {
+    "file": "tests/community-discovery-preview.spec.ts",
+    "decision": "Screenshot selector follows explicit locale route."
+  },
+  {
+    "file": "tests/discovery-navigation-preview.spec.ts",
+    "decision": "Home fallback link and final URL assertion follow explicit locale."
+  },
+  {
+    "file": "tests/discovery-utilities-preview.spec.ts",
+    "decision": "Updated fictional response contracts to existing ownership/count/ack schemas; kept privacy and mutation assertions; all six locale/viewport flows pass."
+  },
+  {
+    "file": "tests/factual-policy-preview.spec.ts",
+    "decision": "Preserve customer rights sections against exact PR202 source; current reads follow moved path, network origin uses test baseURL."
+  },
+  {
+    "file": "tests/final-connected-review.spec.ts",
+    "decision": "Network allowlist uses test baseURL, current Telugu search label; three isolated candidate journeys pass."
+  },
+  {
+    "file": "tests/header-fit.spec.ts",
+    "decision": "Brand geometry targets stable header-home class instead of Telugu-root href; width geometry assertions unchanged."
+  },
+  {
+    "file": "tests/home-biodata-empty.spec.ts",
+    "decision": "Wait for hydrated page before segmented-control click; existing pressed-state assertion unchanged."
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "decision": "Old wedding-gallery carousel replaced by current motion images; active motion has dedicated full suite. English advanced-search accessible-label fixture remains unresolved."
+  },
+  {
+    "file": "tests/home-workspace-preview.spec.ts",
+    "decision": "English accessible name includes search icon, exact-label fixture corrected; all six cases pass."
+  },
+  {
+    "file": "tests/matches-workspace-preview.spec.ts",
+    "decision": "View/contact accessible names now use bundled SVG instead of text emoji; exact labels updated, all six cases pass."
+  },
+  {
+    "file": "tests/menu-core-destinations.spec.ts",
+    "decision": "Menu href loop and home URL explicitly use current locale; all core and session variants pass."
+  },
+  {
+    "file": "tests/motion.spec.ts",
+    "decision": "Scroll sweep uses instant 200px max steps to avoid CSS smooth-scroll skipping sections; visibility assertion now polls final transition. Desktop still has one unresolved low-opacity visible element; not passed."
+  },
+  {
+    "file": "tests/motion.spec.ts",
+    "decision": "Visit each unrevealed block directly after instant sweep; verifies observer without assuming image-reflow sweep reached every block. All three viewport motion visibility checks pass; no application reveal changes."
+  },
+  {
+    "file": "tests/photo-face-eligibility.spec.ts",
+    "decision": "Fill form directly in each URL locale instead of changing roots after selecting a photo. Exact translated labels, full rejection/draft/photo-retention assertions unchanged; all6 pass."
+  },
+  {
+    "file": "tests/private-offline-preview.spec.ts",
+    "decision": "Preserve original no-extra-review-GET assertion via in-place token route language exception. Updated offline SVG labels and Telugu fallback text; all6 private flows and SW fallback pass."
+  },
+  {
+    "file": "tests/contact-qr.spec.ts",
+    "decision": "Added no-reload/no-extra-redemption assertion for in-place language changes in both languages."
+  },
+  {
+    "file": "tests/locale-state-preservation.spec.ts",
+    "reason": "Parent correction: language switches must preserve form, selected File, result and payment state. Both directions; no duplicate order or consent check."
+  },
+  {
+    "file": "tests/locale-not-found.spec.ts",
+    "reason": "Localized real HTTP 404 with visible server HTML and JavaScript disabled, known/service route status parity."
+  }
+]

@@ -8,7 +8,7 @@
  * nothing when the read fails or the payload is not the expected shape.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { apiGet } from "@/lib/api";
 import { validStatement } from "@/lib/referral-payload";
 import { useLang } from "@/lib/lang";

@@ -71,5 +71,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.78,
   }));
 
-  return [...base, ...seo, ...districtSeo, ...blog];
+  const all=[...base,...seo,...districtSeo,...blog];
+  const languages=(url:string)=>({"te-IN":url,"en-IN":url===`${SITE}/`?`${SITE}/en`:url.replace(SITE,`${SITE}/en`),"x-default":url});
+  return all.flatMap(row=>[{...row,alternates:{languages:languages(row.url)}},{...row,url:languages(row.url)["en-IN"],alternates:{languages:languages(row.url)}}]);
 }

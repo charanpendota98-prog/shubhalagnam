@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 const owner='TEST-ACTIVITY';
@@ -9,7 +10,7 @@ async function setup(page:any,lang='en',payload:any=activity(),mode='ok'){
  if(path==='/api/auth/verify')return r.fulfill({json:{valid:true,tsap_id:owner}});
  if(path.endsWith('/activity')){attempts++;if(!recovered&&mode==='network')return r.abort('failed');if(!recovered&&mode==='delay')await delayed;return r.fulfill({status:!recovered&&mode==='http'?503:200,json:recovered?activity():payload});}
  return r.fulfill({json:{success:true,items:[]}})});
- await page.goto('/me'); await page.locator('.account-activity summary').click();
+ await page.goto(localeHref('/me',lang)); await page.locator('.account-activity summary').click();
  return {section:page.getByRole('region',{name:lang==='en'?'Your activity':'మీ కార్యకలాపాలు',exact:true}),attempts:()=>attempts,writes:()=>writes,recover:()=>{recovered=true;release()}};
 }
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`activity failure retry ${lang} ${width}`,async({page})=>{

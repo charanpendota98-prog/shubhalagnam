@@ -67,11 +67,11 @@ check("M1 manifest shortcuts+maskable", '"shortcuts"' in mf and '"maskable"' in 
 sw = src_page("frontend/public/sw.js")
 check("M1 sw push+click handlers", 'addEventListener("push"' in sw
       and 'addEventListener("notificationclick"' in sw, sw[:80])
-check("M1 sw private-cache version bumped (v8)", 'mv-v8-2026-11-private-cache' in sw)
+check("M1 sw private-cache version bumped (v9)", 'mv-v9-2026-11-locale-shell' in sw)
 pb = src_page("frontend/src/components/PushBell.tsx")
 check("M1 PushBell wires 3 APIs", "/api/push/subscribe" in pb and "/api/push/unsubscribe" in pb
       and "/api/push/notify/" in pb and "pushManager" in pb)
-me = src_page("frontend/src/app/me/page.tsx")
+me = src_page("frontend/src/app/(telugu)/me/page.tsx")
 check("M1 /me Alerts tab", '"alerts"' in me and "PushBell" in me)
 al = src_page("frontend/public/.well-known/assetlinks.json")
 check("M1 assetlinks package", "in.manavivaha.app" in al)
@@ -79,7 +79,7 @@ check("M1 playstore guide", os.path.exists(os.path.join(ROOT, "PLAYSTORE-GUIDE-T
 env = src_page(".env.example")
 check("M1 VAPID env template", "VAPID_PUBLIC_KEY" in env and "VAPID_PRIVATE_KEY" in env)
 check("M1 /owner page hidden (no nav link)",
-      os.path.exists(os.path.join(ROOT, "frontend", "src", "app", "owner", "page.tsx"))
+      os.path.exists(os.path.join(ROOT, "frontend", "src", "app", "(telugu)", "owner", "page.tsx"))
       and 'href="/owner"' not in src_page("frontend/src/components/SiteHeader.tsx"))
 
 # ===========================================================================

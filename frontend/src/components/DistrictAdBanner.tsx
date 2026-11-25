@@ -161,7 +161,7 @@ export default function DistrictAdBanner({
                   <p className="text-[11px] text-gray-600 truncate">{ad.offer}</p>
                 </div>
                 {destination ? (
-                  <a
+                  <LocaleAnchor
                     href={destination}
                     target={destination.startsWith("https://") ? "_blank" : undefined}
                     rel={destination.startsWith("https://") ? "noopener noreferrer" : undefined}
@@ -170,7 +170,7 @@ export default function DistrictAdBanner({
                   >
                     {destinationKind === "whatsapp" ? <WhatsAppIcon className="w-3.5 h-3.5" mono /> : null}
                     <span>{destinationLabel}</span>
-                  </a>
+                  </LocaleAnchor>
                 ) : null}
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function DistrictAdBanner({
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100">
               {destination ? (
-                <a
+                <LocaleAnchor
                   href={destination}
                   target={destination.startsWith("https://") ? "_blank" : undefined}
                   rel={destination.startsWith("https://") ? "noopener noreferrer" : undefined}
@@ -226,7 +226,7 @@ export default function DistrictAdBanner({
                 >
                   {destinationKind === "whatsapp" ? <WhatsAppIcon className="w-4 h-4" mono /> : null}
                   <span>{destinationLabel}</span>
-                </a>
+                </LocaleAnchor>
               ) : null}
             </div>
           </div>
@@ -235,3 +235,5 @@ export default function DistrictAdBanner({
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

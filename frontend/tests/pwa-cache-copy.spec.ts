@@ -1,5 +1,6 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`install guidance respects online-data boundary ${lang} ${width}`,async({page})=>{
- await page.setViewportSize({width,height:800});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',r=>r.fulfill({json:{}}));await page.goto('/');await expect(page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.setViewportSize({width,height:800});await page.addInitScript(l=>localStorage.setItem('tsap_lang',l),lang);await page.route('**/api/**',r=>r.fulfill({json:{}}));await page.goto(localeHref('/',lang));await expect(page.getByRole('button',{name:lang==='en'?'Show in English':'తెలుగులో చూపించండి',exact:true})).toHaveAttribute('aria-pressed','true');
  const bar=page.getByTestId('pwa-install-bar');await expect.poll(async()=>{await page.evaluate(()=>window.dispatchEvent(new Event('tsap:install-show')));return bar.isVisible()}).toBe(true);await expect(bar).toContainText(lang==='en'?'Live matches and requests need internet.':'అభ్యర్థనల కోసం ఇంటర్నెట్ అవసరం.');expect(await bar.innerText()).not.toMatch(/opens offline too|offline లో కూడా/);expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await page.waitForTimeout(500);await page.screenshot({animations:'disabled',path:`artifacts/sw-cache/install-${lang}-${width}.png`});
 });

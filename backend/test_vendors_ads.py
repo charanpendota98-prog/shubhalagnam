@@ -468,11 +468,11 @@ def read(path):
     return src_page(path)
 
 
-dir_pg = read("frontend/src/app/vendors/page.tsx")
-reg_pg = read("frontend/src/app/vendors/register/page.tsx")
-det_pg = read("frontend/src/app/vendors/[id]/page.tsx")
-home_pg = read("frontend/src/app/page.tsx")
-admin_pg = read("frontend/src/app/admin/page.tsx")
+dir_pg = read("frontend/src/app/(telugu)/vendors/page.tsx")
+reg_pg = read("frontend/src/app/(telugu)/vendors/register/page.tsx")
+det_pg = read("frontend/src/app/(telugu)/vendors/[id]/page.tsx")
+home_pg = read("frontend/src/app/(telugu)/home-client.tsx")
+admin_pg = read("frontend/src/app/(telugu)/admin/page.tsx")
 control_dashboard = read("frontend/src/components/control/Dashboard.tsx")
 header = read("frontend/src/components/SiteHeader.tsx")
 footer = read("frontend/src/components/SiteFooter.tsx")
@@ -506,10 +506,10 @@ check("Home vendor showcase separates the ₹149 one-day kit from ₹499 Basic l
       and "Explore promotion options" in home_vendors
       and 'href="/vendors/campaign"' in home_vendors)
 check("Private share-kit page requires the owner token and discloses one-day expiry",
-      "X-Vendor-Token" in read("frontend/src/app/vendors/kit/kit-client.tsx")
-      and "does not select any Telegram/WhatsApp destination" in read("frontend/src/app/vendors/kit/kit-client.tsx")
-      and "One-day kit access ends" in read("frontend/src/app/vendors/kit/kit-client.tsx")
-      and "index: false" in read("frontend/src/app/vendors/kit/page.tsx"))
+      "X-Vendor-Token" in read("frontend/src/app/(telugu)/vendors/kit/kit-client.tsx")
+      and "does not select any Telegram/WhatsApp destination" in read("frontend/src/app/(telugu)/vendors/kit/kit-client.tsx")
+      and "One-day kit access ends" in read("frontend/src/app/(telugu)/vendors/kit/kit-client.tsx")
+      and "index: false" in read("frontend/src/app/(telugu)/vendors/kit/page.tsx"))
 check("Vendor WhatsApp hrefs are canonicalized instead of trusting API hrefs",
       "safeWhatsAppPhoneLink" in dir_pg
       and "safeWhatsAppPhoneLink" in read("frontend/src/components/HomeVendorsShowcase.tsx")

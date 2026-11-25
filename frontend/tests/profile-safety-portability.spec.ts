@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 for(const lang of ['en','te'])for(const width of [320,390,1280])test(`profile safety SVG labels ${lang} ${width}`,async({page})=>{
@@ -12,7 +13,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`profile sa
   if(path==='/api/save'){saved=r.request().postDataJSON().saved;return r.fulfill({json:{success:true,saved}})}
   return r.fulfill({json:{success:true,rows:[],total:0,items:[]}});
  });
- await page.goto('/search/FICTIONAL');
+ await page.goto(localeHref('/search/FICTIONAL',lang));
  const tools=page.locator('.profile-tools');
  const names=lang==='en'?['Shortlist','Block','Report','Safety tips']:['షార్ట్‌లిస్ట్','బ్లాక్ చేయండి','రిపోర్ట్ చేయండి','భద్రతా సూచనలు'];
  for(const name of names){const control=tools.getByRole(name===names[3]?'link':'button',{name,exact:true});await expect(control).toBeVisible();await expect(control).toBeEnabled();await expect(control.locator('svg')).toHaveCount(1);expect(await control.evaluate(el=>el.querySelector('svg')?.closest('[aria-hidden="true"]')!==null)).toBe(true);const box=await control.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}

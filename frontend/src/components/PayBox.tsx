@@ -292,13 +292,13 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
                 />
               </div>
 
-              <a
+              <LocaleAnchor
                 href={`upi://pay?pa=${encodeURIComponent(order.upi_id)}&pn=${encodeURIComponent("Mana Vivaha")}&am=${order.final_amount}&cu=INR&tn=${encodeURIComponent(`ManaVivaha ${order.id}`)}`}
                 className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#7A0C2E] hover:bg-[#911239] text-white font-bold text-xs transition shadow-xs"
               >
                 <span>📲</span>
                 <span>{te ? `మొబైల్ UPI యాప్‌తో చెల్లించండి (₹${order.final_amount})` : `Pay ₹${order.final_amount} via UPI App`}</span>
-              </a>
+              </LocaleAnchor>
               {order.status === "claimed" ? (
                 <div className="font-bold text-green-700 bg-green-50 p-2 rounded-lg border border-green-200">
                   {te ? "UTR అందింది. నిర్వాహకుల పరిశీలనలో ఉంది. చెల్లింపు నిర్ధారణ తర్వాతే క్రెడిట్లు జమ అవుతాయి." : "✅ UTR received — admin is verifying, credits soon 🙏"}
@@ -335,3 +335,5 @@ export default function PayBox({ planCode, price, label, purpose = "credits", ts
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

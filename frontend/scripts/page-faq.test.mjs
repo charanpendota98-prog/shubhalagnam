@@ -144,7 +144,7 @@ const PAGES = {
   stories: "stories",
 };
 for (const [route, key] of Object.entries(PAGES)) {
-  const source = readFileSync(new URL(`../src/app/${route}/page.tsx`, import.meta.url), "utf8");
+  const source = readFileSync(new URL(`../src/app/(telugu)/${route}/page.tsx`, import.meta.url), "utf8");
   check(`/${route} builds page SEO for ${key}`, source.includes(`key: "${key}"`));
   check(`/${route} emits both JSON-LD blocks`, (source.match(/application\/ld\+json/g) || []).length === 2);
   check(`/${route} renders breadcrumbs`, source.includes("<Breadcrumbs"));

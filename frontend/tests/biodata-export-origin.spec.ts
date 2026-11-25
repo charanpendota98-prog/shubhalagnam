@@ -1,10 +1,11 @@
+import {localeHref} from "./locale-href";
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 for (const width of [390,1280]) test(`biodata JPG frame starts at document origin ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});
  await page.addInitScript(()=>localStorage.setItem('tsap_lang','te'));
  await page.route('**/api/**',r=>r.request().method()==='GET'?r.fulfill({json:{success:true,items:[]}}):r.abort());
- await page.goto('/biodata');await page.locator('#biodata-religion').selectOption('Hindu');
+ await page.goto(localeHref('/biodata',"te"));await page.locator('#biodata-religion').selectOption('Hindu');
  await page.getByRole('button',{name:'వివరాలను సవరించండి',exact:true}).click();
  await page.getByLabel('పూర్తి పేరు',{exact:true}).fill('నమూనా మాత్రమే');
  await page.getByRole('button',{name:'ప్రివ్యూ చూపించండి',exact:true}).click();

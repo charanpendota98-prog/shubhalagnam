@@ -1,6 +1,6 @@
 "use client";
 import { useState, useSyncExternalStore } from "react";
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 
 type Channel = "youtube" | "instagram" | "whatsapp" | "offline";
@@ -62,6 +62,8 @@ export function CreatorClubProgress({dashboard,stale}:{dashboard:{stats?:{paid_c
   <div role="progressbar" aria-label={te?"తదుపరి badge progress":"Progress to next badge"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={next?`${count} qualifying rewards, ${next.min-count} to ${next.key}`:`${current.key}, highest current badge`} className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#7A0C2E]" style={{width:`${progress}%`}}/></div>
   <ol className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-5">{tiers.map(t=><li key={t.key} className={`rounded-xl border p-3 text-sm ${count>=t.min?"border-amber-300 bg-amber-50 text-[#7A0C2E]":"border-slate-200 text-slate-600"}`}><span className="block font-extrabold">{t.icon} {t.key}</span><span className="mt-1 block text-xs">{t.min} {te?"qualifying rewards నుంచి":"qualifying rewards"} · {count>=t.min?(te?"చేరుకున్నారు":"Reached"):(te?"ఇంకా చేరలేదు":"Not reached")}</span></li>)}</ol>
   <p className="mt-4 text-xs leading-relaxed text-slate-600">{te?"Badge గుర్తింపు మాత్రమే. అదనపు cash, credits, commission, support లేదా ఇతర perk లేదు. Refunds వల్ల rewards, badge మారవచ్చు.":"Badges are recognition only. No extra cash, credits, commission, support or other perks. Refunds can change reward counts and badges."}</p>
-  <a href="#creator-campaigns" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-bold text-white">{te?"మీ తదుపరి campaign సృష్టించండి":"Create your next campaign"}</a>
+  <LocaleAnchor href="#creator-campaigns" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#7A0C2E] px-4 py-2 text-sm font-bold text-white">{te?"మీ తదుపరి campaign సృష్టించండి":"Create your next campaign"}</LocaleAnchor>
  </section>;
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

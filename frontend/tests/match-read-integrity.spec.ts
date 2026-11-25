@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 fs.mkdirSync('artifacts/match-read-integrity',{recursive:true});
@@ -9,7 +10,7 @@ const cases:any[]=[
 async function setup(page:any,lang:string,width:number,reply:(url:URL)=>any){
  await page.setViewportSize({width,height:900});await page.addInitScript((l:string)=>localStorage.setItem('tsap_lang',l),lang);
  await page.route('**/api/**',async(r:any)=>r.fulfill({json:r.request().url().includes('/api/search?')?await reply(new URL(r.request().url())):{success:true}}));
- await page.goto('/matches');
+ await page.goto(localeHref('/matches',lang));
 }
 for(const [name,data] of cases)test(`reject ${name}`,async({page})=>{
  await setup(page,'en',390,()=>data);
@@ -48,7 +49,7 @@ test('pending results stay unknown and an older filter response cannot replace t
  let first:any;let requests=0;
  await page.setViewportSize({width:1280,height:900});await page.addInitScript(()=>localStorage.setItem('tsap_lang','en'));
  await page.route('**/api/**',async r=>{if(!r.request().url().includes('/api/search?'))return r.fulfill({json:{success:true}});requests++;if(requests===1){first=r;return;}return r.fulfill({json:valid([profile('TEST-NEW-SEARCH')])});});
- await page.goto('/matches');await expect.poll(()=>requests).toBe(1);await expect(page.locator('h2[aria-live]')).toContainText('Searching');await expect(page.getByRole('heading',{name:'No profiles match your filters yet'})).toHaveCount(0);
+ await page.goto(localeHref('/matches','en'));await expect.poll(()=>requests).toBe(1);await expect(page.locator('h2[aria-live]')).toContainText('Searching');await expect(page.getByRole('heading',{name:'No profiles match your filters yet'})).toHaveCount(0);
  await page.locator('select').filter({has:page.locator('option[value="boosted"]')}).selectOption('age');await expect(page.getByRole('link',{name:/TEST-NEW-SEARCH/}).first()).toBeVisible();
  await first.fulfill({json:valid([profile('TEST-OLD-SEARCH')])}).catch(()=>{});
  await expect(page.getByRole('link',{name:/TEST-OLD-SEARCH/})).toHaveCount(0);await expect(page.getByRole('link',{name:/TEST-NEW-SEARCH/}).first()).toBeVisible();

@@ -1,3 +1,4 @@
+import {localeHref} from "./locale-href";
 import {test,expect} from '@playwright/test';
 
 test('biodata does not guess religion or carry a prior profile',async({page},info)=>{
@@ -8,7 +9,7 @@ test('biodata does not guess religion or carry a prior profile',async({page},inf
     const b=route.request().url().includes('/search/PROFILE_B');
     return route.fulfill({json:a?{profile:{full_name:'ISOLATED PROFILE A',religion:'Hindu',gothram:'ISOLATED_A_GOTHRAM',caste:'ISOLATED_A_COMMUNITY'}}:b?{profile:{full_name:'ISOLATED PROFILE B'}}:{success:true,items:[]}});
   });
-  await page.goto('/biodata');
+  await page.goto(localeHref('/biodata',"en"));
   const religion=page.locator('#biodata-religion'),canvas=page.locator('#biodata-canvas');
   const initial=await religion.inputValue();
   await religion.selectOption('Other');
@@ -36,7 +37,7 @@ for(const lang of ['en','te']){
       const match=route.request().url().match(/\/search\/CASE_(\d+)/);
       return route.fulfill({json:match?{profile:{full_name:'ISOLATED IMPORT '+match[1],religion:cases[Number(match[1])],caste:'SUPPLIED COMMUNITY'}}:{success:true,items:[]}});
     });
-    await page.goto('/biodata');
+    await page.goto(localeHref('/biodata',lang));
     const load=page.getByRole('button',{name:lang==='te'?'వివరాలు నింపండి':'Load details',exact:true});
     for(let i=0;i<cases.length;i++){
       await page.locator('#biodata-profile-id').fill('CASE_'+i);await load.click();
@@ -58,7 +59,7 @@ for(const lang of ['en','te']){
       if(route.request().url().includes('/search/FAIL'))return route.fulfill({status:404,json:{message_en:'No profile',message_te:'ప్రొఫైల్ లేదు'}});
       return route.fulfill({json:a?{profile:{full_name:'ISOLATED A',religion:'Christian'}}:b?{profile:{full_name:'ISOLATED B',religion:'Muslim'}}:{success:true,items:[]}});
     });
-    await page.goto('/biodata?id=PROFILE_A');const canvas=page.locator('#biodata-canvas');
+    await page.goto(localeHref('/biodata?id=PROFILE_A',lang));const canvas=page.locator('#biodata-canvas');
     await expect(canvas).toContainText('ISOLATED A');
     await page.getByRole('button',{name:te?'వివరాలను సవరించండి':'Edit details',exact:true}).click();
     await page.getByLabel(te?'చర్చి పేరు':'Church / parish',{exact:true}).fill('ISOLATED_A_CHURCH');
@@ -88,7 +89,7 @@ for(const lang of ['en','te']){
       if(url.includes('/search/SLOW')){await gate;return route.fulfill({json:{profile:{full_name:'OUTDATED ISOLATED',religion:'Hindu',gothram:'OUTDATED_GOTHRAM'}}});}
       return route.fulfill({json:url.includes('/search/CURRENT')?{profile:{full_name:'CURRENT ISOLATED',religion:'Muslim'}}:{success:true,items:[]}});
     });
-    await page.goto('/biodata');const load=page.getByRole('button',{name:te?'వివరాలు నింపండి':'Load details',exact:true});
+    await page.goto(localeHref('/biodata',lang));const load=page.getByRole('button',{name:te?'వివరాలు నింపండి':'Load details',exact:true});
     await page.locator('#biodata-profile-id').fill('SLOW');const request=page.waitForRequest('**/api/search/SLOW');await load.click();await request;
     await page.locator('#biodata-profile-id').fill('CURRENT');await load.click();
     const canvas=page.locator('#biodata-canvas');await expect(canvas).toContainText('CURRENT ISOLATED');

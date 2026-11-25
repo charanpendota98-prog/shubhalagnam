@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
 import { whatsappPhoneLink } from "@/lib/wa";
@@ -94,14 +94,14 @@ export default function HomeSecondMarriageSection() {
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {supportUrl ? (
-              <a
+              <LocaleAnchor
                 href={supportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500"
               >
                 💬 {te ? "WhatsApp support" : "WhatsApp support"}
-              </a>
+              </LocaleAnchor>
             ) : null}
             <Link href="/second-marriage" className="whitespace-nowrap rounded-xl border border-white/25 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/10">
               {te ? "Directory తెరవండి" : "Open directory"}
@@ -112,3 +112,5 @@ export default function HomeSecondMarriageSection() {
     </section>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

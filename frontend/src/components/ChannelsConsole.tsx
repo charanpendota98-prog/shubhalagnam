@@ -183,8 +183,8 @@ export default function ChannelsConsole() {
               <span className="text-gray-600 truncate max-w-[220px]">{channelLabel(c, te)}</span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">{audienceLabel(c, te)}</span>
               <span className="ml-auto flex gap-1">
-                {c.telegram && <a href={c.telegram} target="_blank" rel="noreferrer" className="rounded-lg bg-sky-600 text-white px-2.5 py-1 text-[11px] font-bold">✈️ Telegram</a>}
-                {c.whatsapp && <a href={c.whatsapp} target="_blank" rel="noreferrer" className="rounded-lg bg-green-600 text-white px-2.5 py-1 text-[11px] font-bold">💬 WhatsApp</a>}
+                {c.telegram && <LocaleAnchor href={c.telegram} target="_blank" rel="noreferrer" className="rounded-lg bg-sky-600 text-white px-2.5 py-1 text-[11px] font-bold">✈️ Telegram</LocaleAnchor>}
+                {c.whatsapp && <LocaleAnchor href={c.whatsapp} target="_blank" rel="noreferrer" className="rounded-lg bg-green-600 text-white px-2.5 py-1 text-[11px] font-bold">💬 WhatsApp</LocaleAnchor>}
                 <button type="button" onClick={() => { setEditing(editing === c.key ? "" : c.key); setEd({ telegram: c.telegram, whatsapp: c.whatsapp, active: c.active, note: c.note }); }}
                   className="rounded-lg bg-blue-600 text-white px-3 py-1 text-[11px] font-bold">✏️ Links</button>
               </span>
@@ -212,3 +212,5 @@ export default function ChannelsConsole() {
     </div>
   );
 }
+
+import LocaleAnchor from "@/components/LocaleAnchor";

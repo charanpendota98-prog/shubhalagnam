@@ -101,7 +101,7 @@ try:
     check("P2.3 no demo testimonials", not demo, demo[:3])
     amma = grep_count("amma channels")
     check("P2.4 no 'amma channels'", not amma, amma[:2])
-    home_src = src_page("frontend/src/app/page.tsx")
+    home_src = src_page("frontend/src/app/(telugu)/home-client.tsx")
     check("P2.5 home fetches home-stats", "/api/meta/home-stats" in home_src)
     check("P2.6 home uses lang", "useLang" in home_src and "TEXT[lang" in home_src)
 
@@ -114,7 +114,7 @@ try:
           duo_src[:200])
     header_src = src_page("frontend/src/components/SiteHeader.tsx")
     check("P3.3 header has toggle", "LangToggle" in header_src)
-    layout_src = src_page("frontend/src/app/layout.tsx")
+    layout_src = src_page("frontend/src/components/StaticLocaleShell.tsx")
     check("P3.4 provider in layout", "LangProvider" in layout_src)
     # home TEXT dict: te/en key parity (function-name scan)
     # 🐞 FIX (R12): TEXT dict tarvata helper functions (StatValue — R11) vachay kabatti
@@ -125,7 +125,7 @@ try:
     check("P3.5 home te/en key parity", te_keys == en_keys,
           (te_keys ^ en_keys) if te_keys != en_keys else f"{len(te_keys)} keys")
     for pg in ("pricing/page.tsx", "login/page.tsx", "register/page.tsx"):
-        psrc = src_page("frontend/src/app/" + pg)
+        psrc = src_page("frontend/src/app/(telugu)/" + pg)
         check(f"P3.6 {pg} lang-aware", "useLang" in psrc, pg)
 finally:
     pass

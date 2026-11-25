@@ -1,0 +1,716 @@
+"use client";
+/** Member sign-in and recovery, with availability supplied by auth capabilities. */
+import "./workspace.css";
+import { useState, useEffect, useRef } from "react";
+import Link from "@/components/LocaleLink";
+import { KeyRound, Eye, EyeOff, Heart, RotateCcw } from "lucide-react";
+import { useLang } from "@/lib/lang";
+
+import { rememberSession, sendOtp, verifyOtp, fetchAuthCapabilities, type AuthCapabilities } from "@/lib/auth";
+import { confirmedAuthAck, confirmedAuthSession, confirmedPhoneVerification } from "@/lib/auth-confirmation";
+import { loginPasskey } from "@/lib/webauthn-client";
+
+import { apiDisplayMessage, apiPost } from "@/lib/api";
+
+export default function LoginPage() {
+  const router = useLocaleRouter();
+  const { lang } = useLang();
+  const te = lang === "te";
+
+  const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
+  const [capabilitiesError, setCapabilitiesError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetchAuthCapabilities().then((result) => {
+      if (!active) return;
+      if (result.ok && result.data) setCapabilities(result.data);
+      else setCapabilitiesError(true);
+    }).catch(() => { if (active) setCapabilitiesError(true); });
+    return () => { active = false; };
+  }, []);
+
+  const [tab, setTab] = useState<"password" | "otp">("password");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [code, setCode] = useState("");
+  const [stage, setStage] = useState<"phone" | "otp">("phone");
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState<"err" | "ok" | "info">("info");
+  const [busy, setBusy] = useState(false);
+  const [keep, setKeep] = useState(true);
+
+  // Forgot password state
+  const [forgot, setForgot] = useState(false);
+  const [fStage, setFStage] = useState<"phone" | "reset">("phone");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+
+  // Resend OTP countdown timer
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const attempt = useRef(0);
+  const activeRequest = useRef(false);
+  const passkeyController = useRef<AbortController | null>(null);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abandon = () => {
+    passkeyController.current?.abort();
+    passkeyController.current = null;
+    attempt.current += 1;
+    activeRequest.current = false;
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    redirectTimer.current = null;
+    setMsg("");
+    setBusy(false);
+  };
+  useEffect(() => () => {
+    passkeyController.current?.abort();
+    passkeyController.current = null;
+    attempt.current += 1;
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  }, []);
+  const begin = () => {
+    if (activeRequest.current) return null;
+    activeRequest.current = true;
+    setBusy(true);
+    showFeedback("");
+    return ++attempt.current;
+  };
+  const finish = (id: number) => {
+    if (attempt.current !== id) return false;
+    activeRequest.current = false;
+    setBusy(false);
+    return true;
+  };
+  const digits = () => phone.replace(/\D/g, "");
+
+  const showFeedback = (text: string, type: "err" | "ok" | "info" = "info") => {
+    setMsg(text);
+    setMsgType(type);
+  };
+
+  const go = (tsapId: string, token: string, hasAccount: boolean) => {
+    rememberSession(tsapId, token, keep);
+    const owner = attempt.current;
+    redirectTimer.current = setTimeout(() => {
+      if (attempt.current !== owner) return;
+      router.push(hasAccount ? "/requests" : "/register?phone=" + digits());
+    }, 600);
+  };
+
+  async function onPasswordLogin() {
+    const p = digits();
+    if (p.length !== 10) {
+      showFeedback(te ? "దయచేసి 10 అంకెల మొబైల్ నంబర్ ఇవ్వండి" : "Please enter a valid 10-digit mobile number", "err");
+      return;
+    }
+    if (!password) {
+      showFeedback(te ? "దయచేసి మీ పాస్‌వర్డ్ ఎంటర్ చేయండి" : "Please enter your password", "err");
+      return;
+    }
+    const requestId = begin();
+    if (requestId === null) return;
+    const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
+      "/api/auth/login-password", { phone: p, password }
+    );
+    if (!finish(requestId)) return;
+    if (!ok) {
+      showFeedback(error || (te ? "లాగిన్ విఫలమైంది. పాస్‌వర్డ్ సరిచూసుకోండి." : "Login failed. Check your credentials."), "err");
+      return;
+    }
+    if (status !== 200 || !confirmedAuthSession(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
+    showFeedback(apiDisplayMessage(data, te, te ? "లాగిన్ విజయవంతమైంది! మీ ఖాతాలోకి వెళ్తున్నారు..." : "Login successful. Redirecting…"), "ok");
+    go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
+  }
+
+  async function onSend() {
+    if (!capabilities?.phone_otp) return;
+    const p = digits();
+    if (p.length !== 10) {
+      showFeedback(te ? "10 అంకెల మొబైల్ నంబర్ ఇవ్వండి (6/7/8/9 తో ప్రారంభం)" : "Enter 10-digit mobile number (starts 6/7/8/9)", "err");
+      return;
+    }
+    const requestId = begin();
+    if (requestId === null) return;
+    const { ok, data, error, status } = await sendOtp(p);
+    if (!finish(requestId)) return;
+    if (!ok) {
+      showFeedback(error || (te ? "OTP పంపడంలో సమస్య ఏర్పడింది." : "Could not send the OTP. Please try again."), "err");
+      return;
+    }
+    if (status !== 200 || !confirmedAuthAck(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
+    const d = data || {};
+    setStage("otp");
+    setCountdown(30);
+    showFeedback(apiDisplayMessage(d, te, te ? "OTP పంపించాం — మీ SMS/WhatsApp తనిఖీ చేయండి" : "OTP sent. Check your SMS or WhatsApp."), "ok");
+  }
+
+  async function onVerify() {
+    const c = code.trim();
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (!c || c.length < expectedLen) {
+      showFeedback(te ? "దయచేసి OTP కోడ్ నమోదు చేయండి" : "Please enter the OTP code", "err");
+      return;
+    }
+    const requestId = begin();
+    if (requestId === null) return;
+    const { ok, data, error, status } = await verifyOtp(digits(), c);
+    if (!finish(requestId)) return;
+    if (!ok) {
+      showFeedback(error || (te ? "తప్పుడు OTP. మళ్లీ ప్రయత్నించండి." : "Invalid OTP. Please try again."), "err");
+      return;
+    }
+    if (status !== 200 || !confirmedPhoneVerification(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
+    const d = (data || {}) as { auth_token?: string; tsap_id?: string; has_account?: boolean; message_telugu?: string; message_en?: string; message?: string };
+    if (d.has_account) {
+      showFeedback(apiDisplayMessage(d, te, te ? "లాగిన్ విజయవంతమైంది!" : "Login successful."), "ok");
+      go(String(d.tsap_id), String(d.auth_token), true);
+    } else {
+      showFeedback(te ? "మొబైల్ నంబర్ ధృవీకరణ పూర్తయింది. ఇప్పుడు నమోదు చేయండి." : "Phone verified. Continue registration.", "ok");
+      router.push("/register?phone=" + digits());
+    }
+  }
+
+  async function onForgotSend() {
+    const isEmail = phone.includes("@");
+    if (isEmail ? !capabilities?.email_recovery_configured : !capabilities?.phone_otp) {
+      showFeedback(te ? "అందుబాటులో ఉన్న ధృవీకరించిన ఈమెయిల్ రికవరీని వాడండి." : "Use previously verified email recovery when available. Phone OTP is unavailable.", "err");
+      return;
+    }
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    if (!isEmail && p.length !== 10) {
+      showFeedback(te ? "సరైన మొబైల్ నంబర్ లేదా ఈమెయిల్ ఇవ్వండి" : "Enter a valid mobile number or email", "err");
+      return;
+    }
+    const requestId = begin();
+    if (requestId === null) return;
+    const endpoint = isEmail ? "/api/auth/forgot-email" : "/api/auth/forgot";
+    const payload = isEmail ? { email: p } : { phone: p };
+    
+    const { ok, data, error, status } = await apiPost<{ message_telugu?: string; message_en?: string; message?: string }>(
+      endpoint, payload
+    );
+    if (!finish(requestId)) return;
+    if (!ok) {
+      showFeedback(error || (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ పంపడంలో సమస్య ఏర్పడింది. పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ కోడ్‌తో మాత్రమే జరుగుతుంది; ఫోన్ OTP అందుబాటులో లేదు." : "Could not send the email verification code. Password reset uses an emailed code only; phone OTP is unavailable."), "err");
+      return;
+    }
+    if (status !== 200 || !confirmedAuthAck(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
+    setFStage("reset");
+    setCountdown(30);
+    showFeedback(apiDisplayMessage(data, te, te ? "అర్హత ఉన్న ధృవీకరించిన ఖాతాకు రికవరీ కోడ్ కోరబడింది." : "Recovery requested. If eligible, check your verified email for the code."), "ok");
+  }
+
+  async function onReset() {
+    const expectedLen = phone.includes("@") ? 8 : 4;
+    if (code.trim().length < expectedLen) {
+      showFeedback(te ? "ఈమెయిల్‌కు వచ్చిన ధృవీకరణ కోడ్ నమోదు చేయండి" : "Enter the verification code sent to your email", "err");
+      return;
+    }
+    if (newPw.length < 8 || newPw.length > 72) {
+      showFeedback(te ? "కొత్త పాస్‌వర్డ్ 8-72 అక్షరాలు ఉండాలి" : "New password must be 8-72 characters", "err");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      showFeedback(te ? "పాస్‌వర్డ్‌లు సరిపోలడం లేదు" : "Passwords do not match", "err");
+      return;
+    }
+    const requestId = begin();
+    if (requestId === null) return;
+    const isEmail = phone.includes("@");
+    const p = isEmail ? phone.trim().toLowerCase() : digits();
+    const endpoint = isEmail ? "/api/auth/reset-email" : "/api/auth/reset";
+    const payload = isEmail 
+      ? { email: p, code: code.trim(), new_password: newPw }
+      : { phone: p, code: code.trim(), new_password: newPw };
+      
+    const { ok, data, error, status } = await apiPost<{ auth_token?: string; tsap_id?: string; message_telugu?: string; message_en?: string; message?: string }>(
+      endpoint, payload
+    );
+    if (!finish(requestId)) return;
+    if (!ok) {
+      showFeedback(error || (te ? "పాస్‌వర్డ్ రీసెట్ విఫలమైంది." : "Password reset failed. Please try again."), "err");
+      return;
+    }
+    if (status !== 200 || !confirmedAuthSession(data)) {
+      showFeedback(te ? "సర్వర్ నిర్ధారణ రాలేదు. మళ్లీ ప్రయత్నించే ముందు వివరాలు సరిచూసుకోండి." : "The server did not confirm this action. Review your details before trying again.", "err");
+      return;
+    }
+    showFeedback(apiDisplayMessage(data, te, te ? "పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! లాగిన్ అవుతున్నారు..." : "Password changed successfully. Signing in…"), "ok");
+    go(String(data?.tsap_id || ""), String(data?.auth_token || ""), true);
+  }
+
+  return (
+    <div onChangeCapture={abandon} className="mv-login-workspace min-h-dvh bg-gradient-to-b from-[#FFFDF9] via-[#FAF5EE] to-[#F5ECE0] py-6 sm:py-10 px-4 flex flex-col items-center">
+      <div className="w-full max-w-xl">
+        
+        {/* Brand Header */}
+        <div className="text-left mb-5">
+          <Link href="/" className="inline-flex items-center gap-2 mb-2">
+            <Heart aria-hidden="true" className="mv-login-brand-icon" />
+            <span className="font-extrabold text-2xl tracking-tight text-[#7A0C2E]">
+              మన వివాహ <span className="text-gold">Mana Vivaha</span>
+            </span>
+          </Link>
+          <h1 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+            <KeyRound aria-hidden="true" className="mv-login-icon" />
+            {te ? "సభ్యుల లాగిన్" : "Member Login"}
+          </h1>
+          <p className="mt-1 text-xs text-slate-600">
+            {te
+              ? "మీ ఇన్‌బాక్స్, వచ్చిన అభ్యర్థనలు, సేవ్ చేసిన సంబంధాలను చూడటానికి లాగిన్ అవ్వండి."
+              : "Sign in to view your inbox, received requests, and saved matches."}
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 card-shadow border border-gold/30 shadow-xl relative overflow-hidden">
+          
+          {/* Top Gold Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 maroon-gradient" />
+
+          {/* Mode Switcher */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl mb-5">
+            <button type="button"
+              onClick={() => { abandon(); setTab("password"); showFeedback(""); setForgot(false); }}
+              className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+                tab === "password" && !forgot
+                  ? "bg-white text-maroon shadow-md border border-gold/30"
+                  : "text-slate-600 hover:text-maroon"
+              }`}
+            >
+              {te ? "పాస్‌వర్డ్ లాగిన్" : "Password"}
+            </button>
+            {capabilities?.phone_otp && (
+            <button type="button"
+              onClick={() => { abandon(); setTab("otp"); showFeedback(""); setForgot(false); }}
+              className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+                tab === "otp" && !forgot
+                  ? "bg-white text-maroon shadow-md border border-gold/30"
+                  : "text-slate-600 hover:text-maroon"
+              }`}
+            >
+              {te ? "OTP లాగిన్" : "Mobile OTP"}
+            </button>
+            )}
+          </div>
+
+          {/* FORGOT PASSWORD VIEW */}
+          {forgot ? (
+            <div className="space-y-4">
+              <div className="mv-login-recovery-heading flex items-center justify-between gap-3 pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-maroon flex items-center gap-1.5">
+                  <RotateCcw aria-hidden="true" className="mv-login-icon" />
+                  {te ? "ధృవీకరించిన ఈమెయిల్‌తో రికవరీ" : "Recover with verified email"}
+                </span>
+                <button type="button"
+                  onClick={() => { setForgot(false); setFStage("phone"); showFeedback(""); }}
+                  className="text-xs text-slate-500 hover:text-maroon underline font-medium"
+                >
+                  {te ? "← వెనక్కి" : "← Back to Login"}
+                </button>
+              </div>
+
+              <div>
+                <label htmlFor="f-phone" className="block text-xs font-bold text-slate-700 mb-1">
+                  {(!capabilities?.phone_otp || phone.includes("@"))
+                    ? (te ? "ముందే ధృవీకరించిన ఈమెయిల్" : "Previously verified email")
+                    : (te ? "రిజిస్టర్డ్ మొబైల్ నంబర్" : "Registered Mobile Number")}
+                </label>
+                <div className="relative flex items-center">
+                  {capabilities?.phone_otp && !phone.includes("@") && (
+                    <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  )}
+                  <input
+                    id="f-phone"
+                    inputMode={forgot ? "text" : "numeric"}
+                    autoComplete={!capabilities?.phone_otp || phone.includes("@") ? "email" : "tel"}
+                    value={phone}
+                    maxLength={forgot ? 100 : 10}
+                    disabled={fStage === "reset"}
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder={te ? "ముందే ధృవీకరించిన ఈమెయిల్" : "Previously verified email"}
+                    className={`w-full ${!capabilities?.phone_otp || phone.includes("@") ? "pl-4" : "pl-12"} pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50`}
+                  />
+                </div>
+              </div>
+
+              {fStage === "reset" && (
+                <>
+                  <div>
+                    <label htmlFor="f-otp" className="block text-xs font-bold text-slate-700 mb-1">
+                      {phone.includes("@")
+                        ? (te ? "ఈమెయిల్ ధృవీకరణ కోడ్ (8 అంకెలు)" : "Email verification code (8 digits)")
+                        : (te ? "ధృవీకరణ కోడ్ (4 అంకెలు)" : "Verification code (4 digits)")}
+                    </label>
+                    <input
+                      id="f-otp"
+                      inputMode="numeric"
+                      value={code}
+                      maxLength={phone.includes("@") ? 8 : 4}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
+                      placeholder={te ? "ధృవీకరణ కోడ్ నమోదు చేయండి" : "Enter verification code"}
+                      className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="f-newpw" className="block text-xs font-bold text-slate-700 mb-1">
+                      {te ? "కొత్త పాస్‌వర్డ్ (8-72 అక్షరాలు)" : "New Password (8-72 chars)"}
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="f-newpw"
+                        type={showPw ? "text" : "password"}
+                        value={newPw}
+                        onChange={(e) => setNewPw(e.target.value)}
+                        placeholder={te ? "కొత్త పాస్‌వర్డ్" : "New password"}
+                        className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 text-base font-medium focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(!showPw)}
+                        aria-label={te ? (showPw ? "కొత్త పాస్‌వర్డ్ దాచండి" : "కొత్త పాస్‌వర్డ్ చూపించండి") : (showPw ? "Hide new password" : "Show new password")} aria-pressed={showPw}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100"
+                      >
+                        {showPw ? <EyeOff aria-hidden="true" className="mv-login-icon" /> : <Eye aria-hidden="true" className="mv-login-icon" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="f-confirmpw" className="block text-xs font-bold text-slate-700 mb-1">
+                      {te ? "పాస్‌వర్డ్ నిర్ధారణ" : "Confirm Password"}
+                    </label>
+                    <input
+                      id="f-confirmpw"
+                      type={showPw ? "text" : "password"}
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      placeholder={te ? "పాస్‌వర్డ్ మళ్లీ నమోదు చేయండి" : "Re-enter password"}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-base font-medium focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Feedback Message */}
+              {msg && (
+                <div
+                  role="status" aria-live="polite"
+                  className={`p-3 rounded-xl text-xs font-semibold ${
+                    msgType === "err"
+                      ? "bg-red-50 text-red-700 border border-red-200"
+                      : msgType === "ok"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border border-amber-200"
+                  }`}
+                >
+                  {msg}
+                </div>
+              )}
+
+              {/* Reset Action Button */}
+              {fStage === "phone" ? (
+                <button type="button"
+                  onClick={onForgotSend}
+                  disabled={busy || (!capabilities?.email_recovery_configured && !capabilities?.phone_otp)}
+                  className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
+                >
+                  {busy ? (te ? "పంపుతున్నారు…" : "Sending…") : te ? "ఈమెయిల్ రీసెట్ కోడ్ పంపు" : "Email me a reset code"}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <button type="button"
+                    onClick={onReset}
+                    disabled={busy}
+                    className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
+                  >
+                    {busy ? (te ? "సేవ్ చేస్తున్నారు…" : "Saving…") : te ? "పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి" : "Reset Password & Login"}
+                  </button>
+                  <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
+                    <button type="button"
+                      onClick={() => { abandon(); setFStage("phone"); }}
+                      className="text-slate-600 hover:text-maroon underline"
+                    >
+                      {te ? "ఈమెయిల్ మార్చండి" : "Change email"}
+                    </button>
+                    {countdown > 0 ? (
+                      <span>{te ? `${countdown} సెకన్ల తర్వాత మళ్లీ పంపవచ్చు` : `Resend in ${countdown}s`}</span>
+                    ) : (
+                      <button type="button"
+                        onClick={onForgotSend}
+                        className="text-maroon font-bold underline"
+                      >
+                        {te ? "కోడ్ మళ్లీ పంపు" : "Resend code"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* STANDARD LOGIN VIEW (PASSWORD / OTP) */
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="login-phone" className="block text-xs font-bold text-slate-700 mb-1">
+                  {te ? "మొబైల్ నంబర్ (10 అంకెలు)" : "Mobile Number (10 digits)"}
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none">+91</span>
+                  <input
+                    id="login-phone"
+                    inputMode={forgot ? "text" : "numeric"}
+                    autoComplete="tel"
+                    value={phone}
+                    maxLength={forgot ? 100 : 10}
+                    disabled={tab === "otp" && stage === "otp"}
+                    onChange={(e) => setPhone(forgot ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (tab === "password") void onPasswordLogin();
+                        else if (stage === "phone") void onSend();
+                        else void onVerify();
+                      }
+                    }}
+                    placeholder={te ? "నమోదు చేసిన మొబైల్ నంబర్" : "Registered mobile number"}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-base font-semibold focus:border-maroon focus:ring-1 focus:ring-maroon outline-none disabled:bg-slate-50"
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              {tab === "password" && (
+                <div>
+                  <div className="mv-login-field-heading flex justify-between items-center gap-2 mb-1">
+                    <label htmlFor="login-pw" className="block text-xs font-bold text-slate-700">
+                      {te ? "పాస్‌వర్డ్" : "Password"}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        abandon();
+                        setForgot(true);
+                        if (!capabilities?.phone_otp) setPhone("");
+                        setFStage("phone");
+                        setCode("");
+                        showFeedback("");
+                      }}
+                      className="text-[11px] font-bold text-maroon hover:underline"
+                    >
+                      {te ? "పాస్‌వర్డ్ మర్చిపోయారా?" : "Forgot password?"}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="login-pw"
+                      type={showPw ? "text" : "password"}
+                      value={password}
+                      autoComplete="current-password"
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void onPasswordLogin();
+                      }}
+                      placeholder={te ? "మీ పాస్‌వర్డ్" : "Your password"}
+                      className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 text-base font-medium focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(!showPw)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100"
+                      aria-label={te ? (showPw ? "పాస్‌వర్డ్ దాచండి" : "పాస్‌వర్డ్ చూపించండి") : (showPw ? "Hide password" : "Show password")} aria-pressed={showPw}
+                    >
+                      {showPw ? <EyeOff aria-hidden="true" className="mv-login-icon" /> : <Eye aria-hidden="true" className="mv-login-icon" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* OTP Field (when in OTP Mode & Stage 2) */}
+              {tab === "otp" && stage === "otp" && (
+                <div>
+                  <div className="mv-login-field-heading flex justify-between items-center gap-2 mb-1">
+                    <label htmlFor="login-otp" className="block text-xs font-bold text-slate-700">
+                      {te ? (phone.includes("@") ? "8 అంకెల OTP కోడ్" : "4 అంకెల OTP కోడ్") : (phone.includes("@") ? "8-digit OTP Code" : "4-digit OTP Code")}
+                    </label>
+                    <button type="button"
+                      onClick={() => { abandon(); setStage("phone"); setCode(""); }}
+                      className="text-[11px] text-maroon hover:underline font-bold"
+                    >
+                      {te ? "నెంబర్ మార్చు" : "Change Number"}
+                    </button>
+                  </div>
+                  <input
+                    id="login-otp"
+                    inputMode="numeric"
+                    value={code}
+                    maxLength={phone.includes("@") ? 8 : 4}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, phone.includes("@") ? 8 : 4))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void onVerify();
+                    }}
+                    placeholder={te ? "OTP కోడ్ నమోదు చేయండి" : "Enter OTP code"}
+                    className="w-full text-center tracking-[0.4em] py-3 rounded-xl border border-slate-200 text-2xl font-bold font-mono focus:border-maroon focus:ring-1 focus:ring-maroon outline-none"
+                  />
+                  <div className="flex justify-between items-center text-xs text-slate-500 mt-2">
+                    <span>{te ? "SMS లేదా WhatsApp ద్వారా OTP వస్తుంది" : "OTP sent via SMS / WhatsApp"}</span>
+                    {countdown > 0 ? (
+                      <span className="font-mono text-slate-400">{countdown}s</span>
+                    ) : (
+                      <button type="button"
+                        onClick={onSend}
+                        className="text-maroon font-bold underline"
+                      >
+                        {te ? "రీసెండ్ OTP" : "Resend"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Remember Me */}
+              <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-600 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={keep}
+                  onChange={(e) => setKeep(e.target.checked)}
+                  className="w-4 h-4 rounded text-maroon accent-[#7A0C2E]"
+                />
+                <span>{te ? "నన్ను లాగిన్‌లోనే ఉంచండి (సురక్షిత పరికరం)" : "Keep me logged in on this device"}</span>
+              </label>
+
+              {/* Status Message */}
+              {msg && (
+                <div
+                  role="status" aria-live="polite"
+                  className={`p-3 rounded-xl text-xs font-semibold ${
+                    msgType === "err"
+                      ? "bg-red-50 text-red-700 border border-red-200"
+                      : msgType === "ok"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border border-amber-200"
+                  }`}
+                >
+                  {msg}
+                </div>
+              )}
+
+              {/* Submit Action */}
+              <div>
+                {tab === "password" ? (
+                  <button type="button"
+                    onClick={onPasswordLogin}
+                    disabled={busy}
+                    className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
+                  >
+                    {busy ? (te ? "లాగిన్ అవుతున్నారు…" : "Signing in…") : (te ? "లాగిన్ అవ్వండి" : "Login")}
+                  </button>
+                ) : stage === "phone" ? (
+                  <button type="button"
+                    onClick={onSend}
+                    disabled={busy}
+                    className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
+                  >
+                    {busy ? (te ? "OTP పంపుతున్నారు…" : "Sending OTP…") : te ? "OTP కోడ్ పంపు" : "Send OTP Code"}
+                  </button>
+                ) : (
+                  <button type="button"
+                    onClick={onVerify}
+                    disabled={busy}
+                    className="w-full py-3.5 rounded-2xl maroon-gradient text-white font-bold text-sm shadow-md hover-lift disabled:opacity-50"
+                  >
+                    {busy ? (te ? "ధృవీకరిస్తున్నారు…" : "Verifying…") : (te ? "ధృవీకరించి లాగిన్ అవ్వండి" : "Verify & Login")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" role="status">
+            <p className="font-bold text-maroon">{te ? "మొబైల్ నంబర్ + పాస్‌వర్డ్" : "Phone number + password"}</p>
+            <p className="mt-1">{capabilitiesError
+              ? (te ? "అదనపు లాగిన్ పద్ధతుల స్థితి తెలియడం లేదు. పాస్‌వర్డ్‌తో లాగిన్ ప్రయత్నించండి." : "We could not check other sign-in methods. You can still try your password.")
+              : !capabilities ? (te ? "లాగిన్ పద్ధతులు తనిఖీ చేస్తున్నాం..." : "Checking sign-in methods...")
+              : capabilities.phone_otp ? (te ? "ఫోన్ OTP అందుబాటులో ఉంది." : "Phone OTP is available.")
+              : (te ? "ఫోన్ OTP ప్రస్తుతం అందుబాటులో లేదు. ఫోన్ ధృవీకరించబడిందని భావించవద్దు." : "Phone OTP is currently unavailable. A phone number alone is not proof of verified ownership.")}</p>
+            {capabilities && <p className="mt-2 text-xs leading-relaxed">{capabilities.email_recovery_configured
+              ? (te ? "ముందే ధృవీకరించిన ఈమెయిల్‌తో పాస్‌వర్డ్ రికవరీ చేయవచ్చు. ఈమెయిల్ లేని ఖాతాకు పాస్‌వర్డ్ మర్చిపోతే ఆటోమేటిక్ రికవరీ లేదు." : "Password recovery uses a previously verified email. Without one, a forgotten password has no automatic recovery while phone OTP is unavailable.")
+              : (te ? "ఈమెయిల్ రికవరీ కూడా ప్రస్తుతం అందుబాటులో లేదు. మీ పాస్‌వర్డ్‌ను భద్రంగా ఉంచండి." : "Email recovery is not available right now. Keep your password safe; phone-only accounts have no automatic password recovery.")}</p>}
+          </div>
+
+        </div>
+
+
+          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500 mb-3">{te ? "ముందే సెటప్ చేసిన Passkey ఉన్నవారికి" : "For members who already set up a passkey"}</p>
+            <button type="button"
+              onClick={async () => {
+                const requestId = begin();
+                if (requestId === null) return;
+                const controller = new AbortController();
+                passkeyController.current = controller;
+                const res = await loginPasskey(controller.signal);
+                if (passkeyController.current === controller) passkeyController.current = null;
+                if (!finish(requestId)) return;
+                if (confirmedAuthSession(res)) {
+                  showFeedback(res.message || (te ? "లాగిన్ విజయవంతమైంది." : "Sign-in succeeded."), "ok");
+                  go(String(res.tsap_id || ""), String(res.auth_token || ""), true);
+                } else {
+                  showFeedback(res.unconfirmed
+                    ? (te ? "సర్వర్ లాగిన్‌ను నిర్ధారించలేదు. మళ్లీ ప్రయత్నించండి." : "The server did not confirm sign-in. Please try again.")
+                    : res.message || (te ? "లాగిన్ విఫలమైంది." : "Sign-in failed."), "err");
+                }
+              }}
+              disabled={busy || !capabilities?.passkeys_configured}
+              className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold text-sm shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <KeyRound aria-hidden="true" className="mv-login-icon" /> {te ? "Passkey తో లాగిన్ (వేలిముద్ర / ఫేస్ లాక్)" : "Sign in with Passkey"}
+            </button>
+            {!capabilities?.passkeys_configured && <p className="mt-2 text-xs text-slate-500">{te ? "Passkey లాగిన్ ప్రస్తుతం అందుబాటులో లేదు." : "Passkey sign-in is not available right now."}</p>}
+          </div>
+
+        {/* Register Free CTA Footer */}
+        <div className="mt-6 text-center space-y-3">
+          <p className="text-xs text-slate-600">
+            {te ? "ఇంకా ఖాతా లేదా?" : "Don't have an account yet?"}{" "}
+            <Link href="/register" className="font-extrabold text-[#7A0C2E] hover:underline inline-flex items-center gap-1">
+              <span>{te ? "ఉచిత నమోదు" : "Register Free"}</span>
+              <span>→</span>
+            </Link>
+          </p>
+
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 text-[11px] text-slate-500 pt-2">
+            <span className="flex items-center gap-1">{te ? "గోప్యతకు ప్రాధాన్యం" : "Privacy-minded"}</span>
+            <span aria-hidden="true">•</span>
+            <span className="flex items-center gap-1">{te ? "ఫోన్ నంబర్ రక్షణ" : "Phone number privacy"}</span>
+            <span aria-hidden="true">•</span>
+            <Link href="/safety" className="flex items-center gap-1 underline">{te ? "స్పామ్‌ను నివేదించండి" : "Report spam"}</Link>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+import {useLocaleRouter} from "@/lib/locale-navigation";

@@ -14,7 +14,7 @@
  *   keeps; note drafts live in component state only until they are saved.
  */
 
-import Link from "next/link";
+import Link from "@/components/LocaleLink";
 import { Heart, Radio, UserRound } from "lucide-react";
 import "./discovery-workspace.css";
 import { useCallback, useEffect, useRef, useState } from "react";
