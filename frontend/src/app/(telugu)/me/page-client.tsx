@@ -1495,7 +1495,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         setCompletionUnavailable(false);
         setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి." : "Profile details updated.") });
       } else {
-        setMsg({ ok: false, text: T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.") });
+        setMsg({ ok: false, text: apiDisplayMessage(d, te, T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.")) });
         setCompletionUnavailable(true);
         void refreshCompletion();
       }
@@ -2058,7 +2058,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <div id="me-photo_url" tabIndex={-1} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-maroon">
                 <PhotoFlow tsapId={myId} onUploaded={() => refreshCompletion()} />
                 {completionUnavailable && <div className="mt-3 space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-                  <p role={msg && !msg.ok ? "status" : "alert"} className="text-sm text-amber-950">{T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
+                  <p role={saving || (msg && !msg.ok) ? "status" : "alert"} className="text-sm text-amber-950">{T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
                   <button type="button" disabled={refreshingCompletion || saving} onClick={() => void refreshCompletion()} className="min-h-11 rounded-xl border border-maroon px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">{refreshingCompletion ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయండి", "Retry profile completion")}</button>
                 </div>}
               </div>
