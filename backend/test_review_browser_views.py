@@ -75,9 +75,21 @@ r5=link()
 with patch.object(P,'_save_state',side_effect=OSError('isolated persistence failure')):
     check('persistence failure never returns profile',b.get('/api/review-links/'+r5['token']).status_code==500)
 check('failed save retains slot',record(r5)['view_count']==0)
-# No valid cookie means every successful request must consume a slot, not bypass.
+# The store contract rejects caller bugs; HTTP always supplies a minted marker.
 r6=link(2)
-check('missing marker counted',resolve(r6,'')[0] and resolve(r6,'')[0] and not resolve(r6,'')[0])
+for invalid in ["", "short", "x"*44, "!"*43]:
+    try:
+        resolve(r6,invalid)
+    except ValueError:
+        check("invalid marker fails before consuming a slot",record(r6)["view_count"]==0)
+    else:
+        raise AssertionError("invalid marker accepted")
+try:
+    P.resolve_review_link(r6["token"],lambda tid:owner,is_approved_profile=M._is_approved_profile)
+except TypeError:
+    check("missing marker required by signature",record(r6)["view_count"]==0)
+else:
+    raise AssertionError("missing marker accepted")
 r7=link(2)
 b.cookies.set('mv_review_browser','invalid',domain='testserver.local',path='/api/review-links')
 check('malformed marker replaced',b.get('/api/review-links/'+r7['token']).status_code==200 and len(b.cookies.get('mv_review_browser'))==43)

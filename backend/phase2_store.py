@@ -549,14 +549,18 @@ def resolve_review_link(
     *,
     is_approved_profile,
     increment_view: bool = True,
-    viewer_marker: str = "",
+    viewer_marker: str,
 ) -> Tuple[bool, str, Dict[str, Any]]:
+    marker = str(viewer_marker or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", marker):
+        raise ValueError("A valid review browser marker is required")
     tok = str(raw_token or "").strip()
     if not tok:
         return False, "Review link is invalid.", {}
     tok_hash = _sha256(tok)
     now_iso = _utc_iso()
 
+    # File-backed production runs one worker; this lock is process-local.
     with _LOCK:
         st = _load_state()
         target = next(
@@ -570,12 +574,11 @@ def resolve_review_link(
         if str(target.get("expires_at") or "") <= now_iso:
             return False, "This review link has expired.", {}
         # Link-keyed hashes cannot correlate a browser across different links.
-        marker = str(viewer_marker or "")
-        viewer_hash = hmac.new(tok_hash.encode(), marker.encode(), hashlib.sha256).hexdigest() if re.fullmatch(r"[A-Za-z0-9_-]{43}", marker) else ""
+        viewer_hash = hmac.new(tok_hash.encode(), marker.encode(), hashlib.sha256).hexdigest()
         admitted = target.get("browser_views", [])
         if not isinstance(admitted, list):
             return False, "Review link is unavailable.", {}
-        seen = bool(viewer_hash and viewer_hash in admitted)
+        seen = viewer_hash in admitted
         if not seen and int(target.get("view_count") or 0) >= int(target.get("max_views") or 15):
             return False, "This review link has reached its view limit.", {}
 
@@ -584,8 +587,7 @@ def resolve_review_link(
             return False, "Profile is no longer available for review.", {}
 
         if increment_view and not seen:
-            if viewer_hash:
-                target.setdefault("browser_views", []).append(viewer_hash)
+            target.setdefault("browser_views", []).append(viewer_hash)
             target["view_count"] = int(target.get("view_count") or 0) + 1
             _save_state(st)
 
