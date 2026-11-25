@@ -9,6 +9,7 @@ Modular FastAPI router for Phase 2 capabilities:
 from __future__ import annotations
 
 import secrets
+import re
 from typing import Any, Callable, Dict
 from fastapi import APIRouter, HTTPException, Request, Response
 
@@ -295,10 +296,16 @@ def build_phase2_router(ctx: Dict[str, Callable[..., Any] | Any]) -> APIRouter:
         return {"success": True, "revoked_link_id": lid}
 
     @router.get("/api/review-links/{token}")
-    def api_resolve_public_review_link(token: str):
-        ok, msg, data = PHASE2.resolve_review_link(token, find_user, is_approved_profile=is_approved_profile, increment_view=True)
+    def api_resolve_public_review_link(token: str, request: Request, response: Response):
+        marker = request.cookies.get("mv_review_browser", "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{43}", marker):
+            marker = secrets.token_urlsafe(32)
+        ok, msg, data = PHASE2.resolve_review_link(token, find_user, is_approved_profile=is_approved_profile, increment_view=True, viewer_marker=marker)
         if not ok:
             raise HTTPException(404, msg)
+        response.set_cookie("mv_review_browser", marker, max_age=336 * 3600,
+                            path="/api/review-links", secure=production, httponly=True, samesite="lax")
+        response.headers["Cache-Control"] = "private, no-store"
         return {"success": True, **data}
 
     @router.post("/api/review-links/{token}/feedback")

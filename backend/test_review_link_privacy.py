@@ -9,7 +9,7 @@ import main as M
 import phase2_store as P
 from fastapi.testclient import TestClient
 
-c = TestClient(M.app, raise_server_exceptions=False)
+c = TestClient(M.app, base_url="https://testserver", raise_server_exceptions=False)
 base = dict(tsap_id='SYNELDER1', full_name='Isolated Owner', status='approved', is_approved=True,
             is_active=True, photo_private=True, privacy_mode='private', photo_status='approved',
             photo_url='/photos/isolated-only.png', about_myself='Call 9876543210 or elder@example.invalid',
@@ -51,7 +51,8 @@ check('revoked feedback denied',c.post(url+'/feedback',json={'reviewer_name':'Te
 limited=P.create_review_link(owner,is_approved_profile=M._is_approved_profile,max_views=1)
 limited_url='/api/review-links/'+limited['token']
 check('view cap permits first view',c.get(limited_url).status_code==200)
-check('view cap denies second view',c.get(limited_url).status_code==404)
+check('view cap permits same browser revisit',c.get(limited_url).status_code==200)
+check('view cap denies new browser',TestClient(M.app, base_url='https://testserver').get(limited_url).status_code==404)
 expired=P.create_review_link(owner,is_approved_profile=M._is_approved_profile)
 with P._LOCK:
     st=P._load_state()
