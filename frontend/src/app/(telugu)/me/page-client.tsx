@@ -1623,7 +1623,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         </div>
       </div>
 
-      <div role={msg?.ok ? "status" : "alert"} aria-live={msg?.ok ? "polite" : "assertive"}><Msg m={msg} /></div>
+      {msg && <div role={msg.ok ? "status" : "alert"} aria-live={msg.ok ? "polite" : "assertive"}><Msg m={msg} /></div>}
 
       {/* Edit Form */}
       <form onSubmit={handleSave} className="bg-white rounded-3xl p-5 sm:p-7 border border-gold/30 shadow-md space-y-6">
