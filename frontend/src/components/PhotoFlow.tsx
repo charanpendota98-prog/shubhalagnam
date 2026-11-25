@@ -91,7 +91,7 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
   };
 
   const status = st?.photo_status || "loading";
-  const mayReplace = status === "approved" || status === "rejected" || status === "none";
+  const mayReplace = status === "approved" || status === "rejected" || status === "none" || status === "pending";
   const title = status === "none"
     ? (te ? "ప్రొఫైల్ ఫోటో జోడించండి" : "Add a profile photo")
     : status === "approved"
@@ -111,8 +111,8 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
           {status === "pending" ? (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
               {te
-                ? "ఫైల్, స్పష్టత తనిఖీలు పూర్తయ్యాయి. ప్రొఫైల్‌కు ఈ ఫోటో సరిపోతుందో సిబ్బంది సమీక్షిస్తున్నారు. ఈ సమీక్ష వ్యక్తి గుర్తింపును ధృవీకరించదు. మీ గోప్యత ఎంపిక అమల్లో ఉంటుంది."
-                : "File and clarity checks passed. Staff are reviewing photo suitability. This is not identity verification; your privacy choice remains in effect."}
+                ? "ఫైల్, స్పష్టత తనిఖీలు పూర్తయ్యాయి. ప్రొఫైల్‌కు ఈ ఫోటో సరిపోతుందో సిబ్బంది సమీక్షిస్తున్నారు. ఈ సమీక్ష వ్యక్తి గుర్తింపును ధృవీకరించదు. మీ గోప్యత ఎంపిక అమల్లో ఉంటుంది. ఫోటో మార్చితే కొత్త ఫోటో సిబ్బంది సమీక్షకు వెళ్తుంది. ఆమోదం వచ్చే వరకు అది ఇతరులకు కనిపించదు."
+                : "File and clarity checks passed. Staff are reviewing photo suitability. This is not identity verification; your privacy choice remains in effect. Replacing it sends the new photo for staff review. It stays private until approval."}
             </p>
           ) : status === "approved" ? (
             <p className={`mt-1 text-xs leading-relaxed text-slate-600 ${te ? "telugu" : ""}`}>
@@ -161,7 +161,7 @@ export default function PhotoFlow({ tsapId, onUploaded }: { tsapId: string; onUp
           >
             {busy
               ? <Duo en="Checking and uploading…" te="తనిఖీ చేసి అప్‌లోడ్ చేస్తున్నాం…" />
-              : status === "approved"
+              : status === "approved" || status === "pending"
                 ? <Duo en="Replace photo" te="ఫోటో మార్చండి" />
                 : <Duo en="Upload another photo" te="మరో ఫోటో అప్‌లోడ్ చేయండి" />}
           </button>
