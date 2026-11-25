@@ -9,6 +9,19 @@ import { useParams } from "next/navigation";
 import { readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 
+// Share only in-flight reads, never resolved private profile data. React's dev
+// effect replay must not consume two admissions before the first cookie arrives.
+const reviewReads = new Map<string, Promise<{ status: number; ok: boolean; data: any }>>();
+function readReview(token: string) {
+  const existing = reviewReads.get(token);
+  if (existing) return existing;
+  const pending = fetch(`/api/review-links/${encodeURIComponent(token)}`, { cache: "no-store" })
+    .then(async r => ({ status: r.status, ok: r.ok, data: await readApiJson(r) }))
+    .finally(() => reviewReads.delete(token));
+  reviewReads.set(token, pending);
+  return pending;
+}
+
 export default function ElderReviewClient() {
   const { lang } = useLang();
   const te = lang === "te";
@@ -31,9 +44,9 @@ export default function ElderReviewClient() {
     let active = true;
     setLoading(true); setData(null); setErr(""); setFbSent("");
     setReviewerName(""); setRelation("Family Elder"); setNote("");
-    fetch(`/api/review-links/${encodeURIComponent(token)}`, { cache: "no-store" })
-      .then(async (r) => {
-        const d = await readApiJson(r);
+    readReview(token)
+      .then((r) => {
+        const d = r.data;
         if (!active) return;
         if (r.ok && d?.success === true && d.profile && typeof d.profile === "object") setData(d);
         else setErr(r.status === 404 ? "unavailable" : "network");
@@ -98,7 +111,7 @@ export default function ElderReviewClient() {
               ? (te ? "ఈ లింక్ దొరకలేదు, గడువు ముగిసింది, రద్దయింది లేదా view limit చేరింది. ప్రొఫైల్ యజమానిని సంప్రదించండి." : "The link was not found, expired, revoked or reached its view limit. Ask the profile owner for help.")
               : (te ? "ప్రస్తుతం లింక్ వివరాలను నిర్ధారించలేకపోయాం. ఇది లింక్ గడువు ముగిసిందని కాదు." : "The link could not be checked right now. This does not confirm it has expired.")}</p>
             {err === "network" && <>
-              <p className="text-xs text-slate-600">{te ? "మళ్లీ తెరిస్తే మిగిలిన views లో ఒకటి తగ్గవచ్చు." : "Opening it again may use another remaining view."}</p>
+              <p className="text-xs text-slate-600">{te ? "కుకీలు తొలగిస్తే లేదా మరో బ్రౌజర్‌లో తెరిస్తే మరో వీక్షణ లెక్కించబడుతుంది." : "Clearing cookies or using another browser counts as another view."}</p>
               <button type="button" onClick={() => setAttempt(x => x + 1)} className="rounded-xl bg-maroon px-4 py-2 text-white font-bold">{te ? "మళ్లీ ప్రయత్నించండి" : "Try again"}</button>
             </>}
           </div>
@@ -117,11 +130,12 @@ export default function ElderReviewClient() {
                   </h1>
                 </div>
                 <div className="text-right text-[11px] text-slate-500">
-                  <div>{te ? `మిగిలిన వీక్షణలు: ${data.views_remaining}` : `Views remaining: ${data.views_remaining}`}</div>
+                  <div>{te ? `కొత్త బ్రౌజర్లకు మిగిలిన వీక్షణలు: ${data.views_remaining}` : `New browser views remaining: ${data.views_remaining}`}</div>
                   <div>{te ? `గడువు: ${String(data.expires_at).slice(0, 10)}` : `Expires: ${String(data.expires_at).slice(0, 10)}`}</div>
                 </div>
               </div>
 
+              <p className="text-xs text-slate-600">{te ? "కుకీలు ఆన్‌లో ఉంటే, ఈ బ్రౌజర్‌లో మళ్లీ తెరిస్తే మరో వీక్షణ తగ్గదు. కుకీలు తొలగిస్తే లేదా మరో బ్రౌజర్ వాడితే కొత్త వీక్షణగా లెక్కిస్తాం. గడువు, రద్దు నియమాలు వర్తిస్తాయి." : "With cookies enabled, reopening in this browser does not use another view. Clearing cookies or using another browser counts as a new view. Expiry and revocation still apply."}</p>
               {p.photo_private ? (
                 <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-900">
                   <LockKeyhole aria-hidden="true" focusable="false" className="mr-1 inline-block h-3 w-3 align-text-bottom" />{te ? "ప్రొఫైల్ యజమాని ఫోటో ప్రైవసీ ఆన్ చేశారు (ఈ లింక్‌లో ఫోటో దాచబడింది)." : "Photo privacy is enabled by the profile owner (photo withheld on review links)."}

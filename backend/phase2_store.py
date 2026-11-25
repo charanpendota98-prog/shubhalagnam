@@ -511,7 +511,7 @@ def list_review_links(tsap_id: str) -> List[Dict[str, Any]]:
         for r in st["review_links"]:
             if r.get("tsap_id") != tid:
                 continue
-            expired = str(r.get("expires_at") or "") <= now_iso or int(r.get("view_count") or 0) >= int(r.get("max_views") or 15)
+            expired = str(r.get("expires_at") or "") <= now_iso
             eff_status = "revoked" if r.get("status") == "revoked" else ("expired" if expired else "active")
             out.append(
                 {
@@ -520,6 +520,7 @@ def list_review_links(tsap_id: str) -> List[Dict[str, Any]]:
                     "created_at": r.get("created_at"),
                     "expires_at": r.get("expires_at"),
                     "view_count": int(r.get("view_count") or 0),
+                    "view_limit_reached": int(r.get("view_count") or 0) >= int(r.get("max_views") or 15),
                     "max_views": int(r.get("max_views") or 15),
                     "status": eff_status,
                     "feedback": _review_safe(list(r.get("feedback") or [])),
@@ -548,13 +549,18 @@ def resolve_review_link(
     *,
     is_approved_profile,
     increment_view: bool = True,
+    viewer_marker: str,
 ) -> Tuple[bool, str, Dict[str, Any]]:
+    marker = str(viewer_marker or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", marker):
+        raise ValueError("A valid review browser marker is required")
     tok = str(raw_token or "").strip()
     if not tok:
         return False, "Review link is invalid.", {}
     tok_hash = _sha256(tok)
     now_iso = _utc_iso()
 
+    # File-backed production runs one worker; this lock is process-local.
     with _LOCK:
         st = _load_state()
         target = next(
@@ -567,14 +573,21 @@ def resolve_review_link(
             return False, "This review link was revoked by the profile owner.", {}
         if str(target.get("expires_at") or "") <= now_iso:
             return False, "This review link has expired.", {}
-        if int(target.get("view_count") or 0) >= int(target.get("max_views") or 15):
+        # Link-keyed hashes cannot correlate a browser across different links.
+        viewer_hash = hmac.new(tok_hash.encode(), marker.encode(), hashlib.sha256).hexdigest()
+        admitted = target.get("browser_views", [])
+        if not isinstance(admitted, list):
+            return False, "Review link is unavailable.", {}
+        seen = viewer_hash in admitted
+        if not seen and int(target.get("view_count") or 0) >= int(target.get("max_views") or 15):
             return False, "This review link has reached its view limit.", {}
 
         owner = find_user_fn(target.get("tsap_id")) if find_user_fn else None
         if not _review_eligible(owner, is_approved_profile):
             return False, "Profile is no longer available for review.", {}
 
-        if increment_view:
+        if increment_view and not seen:
+            target.setdefault("browser_views", []).append(viewer_hash)
             target["view_count"] = int(target.get("view_count") or 0) + 1
             _save_state(st)
 

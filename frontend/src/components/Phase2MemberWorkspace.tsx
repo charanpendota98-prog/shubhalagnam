@@ -557,13 +557,14 @@ export default function Phase2MemberWorkspace({
           </div>
         )}
 
+        <p className="text-xs text-slate-600">{te ? "కుకీలు ఆన్‌లో ఉంటే, ఒకే బ్రౌజర్‌లో మళ్లీ తెరిస్తే మరో వీక్షణ తగ్గదు. కుకీలు తొలగిస్తే లేదా మరో బ్రౌజర్ వాడితే కొత్త వీక్షణగా లెక్కిస్తాం." : "With cookies enabled, repeat opens in the same browser do not use another view. Clearing cookies or using another browser counts as a new view."}</p>
         {links.length > 0 && (
           <div className="space-y-2">
             {links.map((lk) => (
               <div key={lk.link_id} className="rounded-xl border border-slate-200 p-3 text-xs space-y-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <b>{lk.label}</b> ({lk.link_id}) • {lk.view_count}/{lk.max_views} views • <b>{lk.status}</b>
+                    <b>{lk.label}</b> ({lk.link_id}) • {lk.view_count}/{lk.max_views} {te ? "బ్రౌజర్ వీక్షణలు" : "browser views"} • <b>{lk.status}</b>{lk.view_limit_reached ? (te ? " • కొత్త బ్రౌజర్ల పరిమితి చేరింది" : " • New browser limit reached") : ""}
                   </div>
                   {lk.status === "active" && (
                     <button type="button" onClick={() => void revokeElderLink(lk.link_id)} className="text-rose-700 font-bold underline">
