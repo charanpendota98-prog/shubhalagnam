@@ -61,11 +61,12 @@ async function overlap(page:Page,lang='en'){
   localStorage.setItem('tsap_id',owner);
   const real=window.fetch.bind(window);let photo=false;
   const gates=new Map<string,(r:Response)=>void>();
+  (window as any).rejectSave=()=>{};
   (window as any).completionReads=0;(window as any).saveWrites=0;
   (window as any).releaseCompletion=(key:string,body:any,status=200)=>{const release=gates.get(key);if(!release)throw Error('Missing gate '+key);release(new Response(JSON.stringify(body),{status}));gates.delete(key)};
   window.fetch=(input,init)=>{
    const path=new URL(String(input),location.href).pathname;
-   if(path==='/api/profile/update')return new Promise<Response>(resolve=>{(window as any).saveWrites++;gates.set('save',resolve);(window as any).saveStarted=true});
+   if(path==='/api/profile/update')return new Promise<Response>((resolve,reject)=>{(window as any).rejectSave=()=>reject(new TypeError('Fictional network failure'));(window as any).saveWrites++;gates.set('save',resolve);(window as any).saveStarted=true});
    if(path===`/api/profile/${owner}`){
     if(!photo)return Promise.resolve(new Response(JSON.stringify(valid),{status:200}));
     const n=++(window as any).completionReads;
@@ -122,4 +123,20 @@ test('retry stays disabled and translates warning while read is pending',async({
  const retry=warning(page).locator('..').getByRole('button');await retry.click();await expect(retry).toBeDisabled();await expect(retry).toHaveText('Checking…');
  await page.getByRole('button',{name:'తెలుగులో చూపించండి',exact:true}).click();await expect(warning(page)).toBeVisible();await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
  await release(page,'read2',updated);await expect(completion(page)).toContainText('100%');await expect(warning(page)).toHaveCount(0);
+});
+for(const lang of ['en','te'])test(`rejected save rechecks and clears announced failure after confirmed read ${lang}`,async({page})=>{
+ await overlap(page,lang);await save(page);await page.evaluate(()=>(window as any).rejectSave());
+ await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);
+ const feedback=page.getByText(lang==='en'?'A network error occurred. Your edits are kept here; please retry.':'నెట్‌వర్క్ సమస్య. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.',{exact:true});
+ await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');
+ await release(page,'read1',{...valid,completeness_score:12});await settled(page);await expect(warning(page)).toBeVisible();await expect(completion(page)).toContainText('42%');
+ await release(page,'read2',updated);await expect(completion(page)).toContainText('100%');await expect(feedback).toHaveCount(0);await expect(warning(page)).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+});
+test('save success invalidates a photo refresh started while saving',async({page})=>{
+ await overlap(page);await release(page,'read1',valid);await expect(page.getByRole('button',{name:'Replace photo',exact:true})).toBeEnabled();await save(page);
+ await page.getByLabel('Choose a replacement profile photo',{exact:true}).setInputFiles('tests/fixtures/synthetic-profile.jpg');await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);
+ await release(page,'save',{...valid,completeness_score:75});await expect(completion(page)).toContainText('75%');
+ await release(page,'read2',{...valid,completeness_score:12});await settled(page);await expect(completion(page)).toContainText('75%');
+ expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
 });
