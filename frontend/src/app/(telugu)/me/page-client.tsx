@@ -1495,7 +1495,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         setCompletionUnavailable(false);
         setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి." : "Profile details updated.") });
       } else {
-        setMsg({ ok: false, text: apiDisplayMessage(d, te, T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.")) });
+        setMsg({ ok: false, text: T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.") });
         setCompletionUnavailable(true);
         void refreshCompletion();
       }

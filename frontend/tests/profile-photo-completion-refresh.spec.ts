@@ -62,6 +62,7 @@ async function overlap(page:Page,lang='en'){
   const real=window.fetch.bind(window);let photo=false;
   const gates=new Map<string,(r:Response)=>void>();
   (window as any).rejectSave=()=>{};
+  (window as any).releaseRawSave=(status:number)=>{gates.get('save')!(new Response('<html>upstream unavailable</html>',{status}));gates.delete('save')};
   (window as any).completionReads=0;(window as any).saveWrites=0;
   (window as any).releaseCompletion=(key:string,body:any,status=200)=>{const release=gates.get(key);if(!release)throw Error('Missing gate '+key);release(new Response(JSON.stringify(body),{status}));gates.delete(key)};
   window.fetch=(input,init)=>{
@@ -151,8 +152,11 @@ for(const lang of ['en','te'])test(`stale recheck cannot remove newer save failu
  expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(2);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
  await save(page);await release(page,'save',updated);await expect(completion(page)).toContainText('100%');await expect(feedback).toHaveCount(0);await expect(warning(page)).toHaveCount(0);await expect(page.locator('#account-task-panel [role=status]')).toBeVisible();
 });
-for(const lang of ['en','te'])test(`explicit server rejection stays announced after a successful completion read ${lang}`,async({page})=>{
- await overlap(page,lang);await release(page,'read1',valid);await save(page);await release(page,'save',{detail:'Fictional server rejection: height invalid',detail_te:'పరీక్ష కారణం: ఎత్తు చెల్లదు'},400);
+const realGroomRejection = "\u26a0\ufe0f Housewife / Homemaker (\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f) does not apply to a Groom profile \u2014 \u0c35\u0c30\u0c41\u0c21\u0c3f \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u0c15\u0c41 \u2018\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f / Housewife\u2019 \u0c0e\u0c02\u0c2a\u0c3f\u0c15 \u0c35\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c26\u0c41. Choose the work that describes this member \u2014 \u0c0e \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c15\u0c3f \u0c38\u0c30\u0c2f\u0c47 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f.";
+for(const lang of ['en','te'])for(const mode of ['groom400','server503','proxy502','unreadable200'])test(`unconfirmed save keeps localized failure without trusting response text ${lang} ${mode}`,async({page})=>{
+ await overlap(page,lang);await release(page,'read1',valid);await save(page);
+ if(mode==='proxy502'||mode==='unreadable200')await page.evaluate(({mode})=>(window as any).releaseRawSave(mode==='proxy502'?502:200),{mode});
+ else await release(page,'save',{detail:mode==='groom400'?realGroomRejection:'Profile changes could not be saved safely. Please try again.'},mode==='groom400'?400:503);
  await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);await release(page,'read2',updated);
- await expect(completion(page)).toContainText('100%');const feedback=page.getByText(lang==='en'?'Fictional server rejection: height invalid':'పరీక్ష కారణం: ఎత్తు చెల్లదు',{exact:true});await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');await expect(warning(page)).toHaveCount(0);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ await expect(completion(page)).toContainText('100%');const feedback=page.getByText(lang==='en'?'We could not confirm the save. Your edits are kept here; please retry.':'సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.',{exact:true});await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');await expect(warning(page)).toHaveCount(0);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
 });
