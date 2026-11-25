@@ -1414,7 +1414,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
     Array.isArray(data.missing_fields) && data.missing_fields.every((field: unknown) => typeof field === "string")
   ), [myId]);
 
-  const refreshCompletion = useCallback(async (clearSaveFeedback = false) => {
+  const refreshCompletion = useCallback(async () => {
     const epoch = ++completionEpoch.current;
     setRefreshingCompletion(true);
     try {
@@ -1425,7 +1425,6 @@ function EditProfilePanel({ myId }: { myId: string }) {
       // Only update saved completion facts. Never overwrite unsaved profile fields.
       setScore(data.completeness_score); setMissing(data.missing_fields);
       setCompletionUnavailable(false);
-      if (clearSaveFeedback) setMsg(null);
     } catch {
       if (epoch === completionEpoch.current) setCompletionUnavailable(true);
     } finally {
@@ -1498,12 +1497,12 @@ function EditProfilePanel({ myId }: { myId: string }) {
       } else {
         setMsg({ ok: false, text: T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.") });
         setCompletionUnavailable(true);
-        void refreshCompletion(true);
+        void refreshCompletion();
       }
     } catch {
       setMsg({ ok: false, text: T("నెట్‌వర్క్ సమస్య. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "A network error occurred. Your edits are kept here; please retry.") });
       setCompletionUnavailable(true);
-      void refreshCompletion(true);
+      void refreshCompletion();
     }
     setSaving(false);
   };
@@ -2059,7 +2058,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <div id="me-photo_url" tabIndex={-1} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-maroon">
                 <PhotoFlow tsapId={myId} onUploaded={() => refreshCompletion()} />
                 {completionUnavailable && <div className="mt-3 space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-                  <p role="alert" className="text-sm text-amber-950">{T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
+                  <p role={msg && !msg.ok ? "status" : "alert"} className="text-sm text-amber-950">{T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
                   <button type="button" disabled={refreshingCompletion || saving} onClick={() => void refreshCompletion()} className="min-h-11 rounded-xl border border-maroon px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">{refreshingCompletion ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయండి", "Retry profile completion")}</button>
                 </div>}
               </div>

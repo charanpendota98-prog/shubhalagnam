@@ -89,7 +89,7 @@ async function overlap(page:Page,lang='en'){
 }
 async function release(page:Page,key:string,body:any,status=200){await page.evaluate(({key,body,status})=>(window as any).releaseCompletion(key,body,status),{key,body,status});}
 const completion=(page:Page)=>page.getByRole('heading',{name:/Profile completion|ప్రొఫైల్ పూర్తి స్థితి/});
-const warning=(page:Page)=>page.getByRole('alert').filter({hasText:/could not refresh profile completion|పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం/});
+const warning=(page:Page)=>page.locator('p').filter({hasText:/^We could not refresh profile completion|^పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం/});
 async function save(page:Page){await page.getByRole('button',{name:/^Save changes$|^మార్పులను సేవ్ చేయండి$/}).click();await expect.poll(()=>page.evaluate(()=>(window as any).saveStarted)).toBe(true);}
 async function settled(page:Page){await page.evaluate(()=>new Promise<void>(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r()))));}
 
@@ -116,7 +116,7 @@ for(const mode of ['malformed','wrong-owner','false-success','network-like'])tes
 });
 for(const lang of ['en','te'])test(`confirmed save clears previous completion warning ${lang}`,async({page})=>{
  await overlap(page,lang);await release(page,'read1',{success:false},503);await expect(warning(page)).toBeVisible();await save(page);await release(page,'save',updated);
- await expect(completion(page)).toContainText('100%');await expect(warning(page)).toHaveCount(0);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ await expect(completion(page)).toContainText('100%');await expect(warning(page)).toHaveCount(0);await expect(page.locator('#account-task-panel [role=status]')).toBeVisible();await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
 });
 test('retry stays disabled and translates warning while read is pending',async({page})=>{
  await overlap(page);await release(page,'read1',{success:false},503);await expect(warning(page)).toBeVisible();
@@ -124,13 +124,13 @@ test('retry stays disabled and translates warning while read is pending',async({
  await page.getByRole('button',{name:'తెలుగులో చూపించండి',exact:true}).click();await expect(warning(page)).toBeVisible();await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
  await release(page,'read2',updated);await expect(completion(page)).toContainText('100%');await expect(warning(page)).toHaveCount(0);
 });
-for(const lang of ['en','te'])test(`rejected save rechecks and clears announced failure after confirmed read ${lang}`,async({page})=>{
+for(const lang of ['en','te'])test(`rejected save rechecks but keeps announced unsaved failure until real save success ${lang}`,async({page})=>{
  await overlap(page,lang);await save(page);await page.evaluate(()=>(window as any).rejectSave());
  await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);
  const feedback=page.getByText(lang==='en'?'A network error occurred. Your edits are kept here; please retry.':'నెట్‌వర్క్ సమస్య. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.',{exact:true});
- await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');
+ await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');await expect(warning(page)).toHaveAttribute('role','status');
  await release(page,'read1',{...valid,completeness_score:12});await settled(page);await expect(warning(page)).toBeVisible();await expect(completion(page)).toContainText('42%');
- await release(page,'read2',updated);await expect(completion(page)).toContainText('100%');await expect(feedback).toHaveCount(0);await expect(warning(page)).toHaveCount(0);
+ await release(page,'read2',updated);await expect(completion(page)).toContainText('100%');await expect(feedback).toBeVisible();await expect(warning(page)).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
 });
 test('save success invalidates a photo refresh started while saving',async({page})=>{
@@ -139,4 +139,20 @@ test('save success invalidates a photo refresh started while saving',async({page
  await release(page,'save',{...valid,completeness_score:75});await expect(completion(page)).toContainText('75%');
  await release(page,'read2',{...valid,completeness_score:12});await settled(page);await expect(completion(page)).toContainText('75%');
  expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+});
+for(const lang of ['en','te'])test(`stale recheck cannot remove newer save failure or uncertainty ${lang}`,async({page})=>{
+ await overlap(page,lang);await release(page,'read1',valid);await save(page);await release(page,'save',{success:false},503);
+ await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);
+ await save(page);await page.evaluate(()=>(window as any).rejectSave());await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(3);
+ const feedback=page.getByText(lang==='en'?'A network error occurred. Your edits are kept here; please retry.':'నెట్‌వర్క్ సమస్య. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.',{exact:true});
+ await release(page,'read3',{success:false},503);await expect(feedback).toBeVisible();await expect(warning(page)).toBeVisible();
+ await release(page,'read2',updated);await settled(page);await expect(completion(page)).toContainText('42%');await expect(feedback).toBeVisible();await expect(warning(page)).toBeVisible();
+ await expect(feedback.locator('..')).toHaveAttribute('role','alert');await expect(warning(page)).toHaveAttribute('role','status');
+ expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(2);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ await save(page);await release(page,'save',updated);await expect(completion(page)).toContainText('100%');await expect(feedback).toHaveCount(0);await expect(warning(page)).toHaveCount(0);await expect(page.locator('#account-task-panel [role=status]')).toBeVisible();
+});
+test('explicit server rejection stays announced after a successful completion read',async({page})=>{
+ await overlap(page);await release(page,'read1',valid);await save(page);await release(page,'save',{detail:'Fictional server rejection: height invalid'},400);
+ await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);await release(page,'read2',updated);
+ await expect(completion(page)).toContainText('100%');await expect(page.getByText('We could not confirm the save. Your edits are kept here; please retry.',{exact:true})).toBeVisible();await expect(warning(page)).toHaveCount(0);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
 });
