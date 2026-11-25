@@ -1357,6 +1357,9 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState(false);
   const readEpoch = useRef(0);
+  const completionEpoch = useRef(0);
+  const [completionUnavailable, setCompletionUnavailable] = useState(false);
+  const [refreshingCompletion, setRefreshingCompletion] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const selectedCaste = String(profile.caste || "");
@@ -1403,6 +1406,32 @@ function EditProfilePanel({ myId }: { myId: string }) {
     (control as HTMLElement).focus({ preventScroll: true });
   };
 
+  const validProfileRead = useCallback((data: Row) => (
+    data?.success === true && data.profile && typeof data.profile === "object" && !Array.isArray(data.profile) &&
+    String(data.profile.tsap_id || "").toUpperCase() === myId.toUpperCase() &&
+    typeof data.completeness_score === "number" && Number.isFinite(data.completeness_score) &&
+    data.completeness_score >= 0 && data.completeness_score <= 100 &&
+    Array.isArray(data.missing_fields) && data.missing_fields.every((field: unknown) => typeof field === "string")
+  ), [myId]);
+
+  const refreshCompletion = useCallback(async () => {
+    const epoch = ++completionEpoch.current;
+    setRefreshingCompletion(true);
+    try {
+      const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
+      const data = await readApiJson(res);
+      if (epoch !== completionEpoch.current) return;
+      if (!res.ok || !validProfileRead(data)) throw new Error("Completion read unavailable");
+      // Only update saved completion facts. Never overwrite unsaved profile fields.
+      setScore(data.completeness_score); setMissing(data.missing_fields);
+      setCompletionUnavailable(false);
+    } catch {
+      if (epoch === completionEpoch.current) setCompletionUnavailable(true);
+    } finally {
+      if (epoch === completionEpoch.current) setRefreshingCompletion(false);
+    }
+  }, [myId, validProfileRead]);
+
   const loadProfile = useCallback(async () => {
     const epoch = ++readEpoch.current;
     setLoading(true); setReadError(false);
@@ -1410,11 +1439,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
       const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
       const d = await readApiJson(res);
       if (epoch !== readEpoch.current) return;
-      if (!res.ok || !d || d.success !== true || !d.profile || typeof d.profile !== "object" || Array.isArray(d.profile) ||
-          String(d.profile.tsap_id || "").toUpperCase() !== myId.toUpperCase() ||
-          typeof d.completeness_score !== "number" || !Number.isFinite(d.completeness_score) ||
-          d.completeness_score < 0 || d.completeness_score > 100 ||
-          !Array.isArray(d.missing_fields) || !d.missing_fields.every((field: unknown) => typeof field === "string")) {
+      if (!res.ok || !validProfileRead(d)) {
         throw new Error("Profile read unavailable");
       }
       setProfile(d.profile); setScore(d.completeness_score); setMissing(d.missing_fields);
@@ -1423,11 +1448,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
     } finally {
       if (epoch === readEpoch.current) setLoading(false);
     }
-  }, [myId]);
+  }, [myId, validProfileRead]);
 
   useEffect(() => {
     void loadProfile();
-    return () => { readEpoch.current++; };
+    return () => { readEpoch.current++; completionEpoch.current++; };
   }, [loadProfile]);
 
   const setField = (k: string, v: any) => {
@@ -1437,6 +1462,9 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading || readError || !profile.tsap_id) return;
+    // A completion read started before this write must not replace newer facts.
+    completionEpoch.current++;
+    setRefreshingCompletion(false);
     setSaving(true);
     setMsg(null);
     const profilePayload = { ...profile };
@@ -2021,15 +2049,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <div id="me-photo_url" tabIndex={-1} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-maroon">
-                <PhotoFlow tsapId={myId} onUploaded={async () => {
-                  // Refresh the saved completion facts without discarding unsaved text edits.
-                  const res = await fetch(`/api/profile/${encodeURIComponent(myId)}`, { headers: authHeaders() });
-                  if (res.ok) {
-                    const data = await readApiJson(res);
-                    setScore(typeof data.completeness_score === "number" && Number.isFinite(data.completeness_score) ? Math.min(100, Math.max(0, data.completeness_score)) : 0);
-                    setMissing(data.missing_fields || []);
-                  }
-                }} />
+                <PhotoFlow tsapId={myId} onUploaded={refreshCompletion} />
+                {completionUnavailable && <div className="mt-3 space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                  <p role="alert" className="text-sm text-amber-950">{T("ఫోటో అప్‌లోడ్ అయింది. పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "Your photo was uploaded. We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
+                  <button type="button" disabled={refreshingCompletion} onClick={() => void refreshCompletion()} className="min-h-11 rounded-xl border border-maroon px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">{refreshingCompletion ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయండి", "Retry profile completion")}</button>
+                </div>}
               </div>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
