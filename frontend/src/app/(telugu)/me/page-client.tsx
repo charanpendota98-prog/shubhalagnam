@@ -1462,9 +1462,6 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading || readError || !profile.tsap_id) return;
-    // A completion read started before this write must not replace newer facts.
-    completionEpoch.current++;
-    setRefreshingCompletion(false);
     setSaving(true);
     setMsg(null);
     const profilePayload = { ...profile };
@@ -1480,6 +1477,9 @@ function EditProfilePanel({ myId }: { myId: string }) {
     delete profilePayload.caste_custom;
     delete profilePayload.photo_url;
     delete profilePayload.photo_urls;
+    // Hold older completion reads while this write is unresolved.
+    completionEpoch.current++;
+    setRefreshingCompletion(false);
     try {
       const res = await fetch("/api/profile/update", {
         method: "POST",
@@ -1487,15 +1487,21 @@ function EditProfilePanel({ myId }: { myId: string }) {
         body: JSON.stringify({ tsap_id: myId, ...profilePayload }),
       });
       const d = await readApiJson(res);
-      if (res.ok && d.success) {
-        setScore(typeof d.completeness_score === "number" && Number.isFinite(d.completeness_score) ? Math.min(100, Math.max(0, d.completeness_score)) : 0);
-        setMissing(d.missing_fields || []);
+      if (res.ok && validProfileRead(d)) {
+        completionEpoch.current++;
+        setScore(d.completeness_score);
+        setMissing(d.missing_fields);
+        setCompletionUnavailable(false);
         setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి." : "Profile details updated.") });
       } else {
-        setMsg({ ok: false, text: apiDisplayMessage(d, te, te ? "అప్‌డేట్ విఫలమైంది. మళ్లీ ప్రయత్నించండి." : "Update failed. Please try again.") });
+        setMsg({ ok: false, text: T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.") });
+        setCompletionUnavailable(true);
+        void refreshCompletion();
       }
     } catch {
-      setMsg({ ok: false, text: T("నెట్‌వర్క్ సమస్య — దయచేసి మళ్లీ ప్రయత్నించండి", "A network error occurred. Please try again.") });
+      setMsg({ ok: false, text: T("నెట్‌వర్క్ సమస్య. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "A network error occurred. Your edits are kept here; please retry.") });
+      setCompletionUnavailable(true);
+      void refreshCompletion();
     }
     setSaving(false);
   };
@@ -2051,8 +2057,8 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <div id="me-photo_url" tabIndex={-1} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-maroon">
                 <PhotoFlow tsapId={myId} onUploaded={refreshCompletion} />
                 {completionUnavailable && <div className="mt-3 space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-                  <p role="alert" className="text-sm text-amber-950">{T("ఫోటో అప్‌లోడ్ అయింది. పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "Your photo was uploaded. We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
-                  <button type="button" disabled={refreshingCompletion} onClick={() => void refreshCompletion()} className="min-h-11 rounded-xl border border-maroon px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">{refreshingCompletion ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయండి", "Retry profile completion")}</button>
+                  <p role="alert" className="text-sm text-amber-950">{T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయలేకపోయాం. పైన చివరిగా నిర్ధారించిన స్థితి కనిపిస్తోంది; మీరు సేవ్ చేయని వివరాలు అలాగే ఉన్నాయి.", "We could not refresh profile completion. The last confirmed completion is shown above; your unsaved edits are kept.")}</p>
+                  <button type="button" disabled={refreshingCompletion || saving} onClick={() => void refreshCompletion()} className="min-h-11 rounded-xl border border-maroon px-4 py-2 text-sm font-bold text-maroon disabled:opacity-50">{refreshingCompletion ? T("తనిఖీ చేస్తున్నాం…", "Checking…") : T("పూర్తి స్థితిని మళ్లీ తనిఖీ చేయండి", "Retry profile completion")}</button>
                 </div>}
               </div>
             </div>
