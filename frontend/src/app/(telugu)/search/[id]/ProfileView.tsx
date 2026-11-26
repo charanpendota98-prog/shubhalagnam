@@ -17,6 +17,7 @@ import { ProfileSkeleton } from "@/components/Skeletons";
 import AuthGate from "@/components/AuthGate";
 import { apiDisplayMessage, apiGet, apiPost, authHeaders } from "@/lib/api";
 import { contactQrSvg } from "@/lib/qr";
+import { isExplicitTrue } from "@/lib/explicit-truth.mjs";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";
 import { useSession } from "@/lib/auth";
@@ -583,7 +584,7 @@ export default function ProfileView() {
                   {profile.id_verified ? <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 font-extrabold text-blue-800" title={te ? "ప్రభుత్వ ID ను staff manual గా పరిశీలించారు; ఇది ఇతర వివరాలను ధృవీకరించదు" : "Government ID manually reviewed by staff; this does not verify other profile details"}>🪪 {te ? "ప్రభుత్వ ID సమీక్ష" : "Government ID reviewed"}</span> : null}
                   {profile.selfie_verified ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800" title={te ? "సెల్ఫీ చిత్రం staff review లో ఆమోదించబడింది; ఇది liveness check కాదు" : "Selfie image approved in staff review; this is not a liveness check"}>🤳 {te ? "సెల్ఫీ సమీక్ష" : "Selfie reviewed"}</span> : null}
                   {profile.boosted ? <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">⚡ {te ? "బూస్ట్ చేయబడింది" : "Boosted"}</span> : null}
-                  {profile.is_nri ? <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">✈️ NRI{profile.country && profileText(profile.country, "") !== "India" ? ` • ${profileText(profile.country, "")}` : ""}</span> : null}
+                  {isExplicitTrue(profile.is_nri) ? <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">✈️ NRI{profile.country && profileText(profile.country, "") !== "India" ? ` • ${profileText(profile.country, "")}` : ""}</span> : null}
                   {profile.profession_label && profileText(profile.profession_label, "") ? <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">{profileText(profile.profession_label, "")}</span> : null}
                 </div>
               </div>

@@ -706,6 +706,15 @@ def req_bool(value: Any) -> bool:
     return str(value or "").strip().lower() in ("1", "true", "yes", "on", "y")
 
 
+def is_explicit_true(value: Any) -> bool:
+    """Read-side true spellings, without treating arbitrary legacy values as true."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value == 1
+    return isinstance(value, str) and value.strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
 def req_bool_strict(value: Any, field: str = "boolean") -> bool:
     """Normalize a boolean field without silently turning typos into false."""
     if isinstance(value, bool):
