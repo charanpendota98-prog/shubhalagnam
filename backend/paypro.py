@@ -638,11 +638,13 @@ def _rzp_payment_status(payment_id: str) -> Dict:
         r = requests.get("https://api.razorpay.com/v1/payments/%s" % payment_id,
                          auth=(key_id, secret), timeout=12)
         j = r.json() if r.status_code == 200 else {}
-        if not j.get("id"):
+        if not isinstance(j, dict) or not j.get("id"):
             return {"captured": False, "amount": 0, "status": "",
-                    "error": str((j.get("error") or {}).get("description") or "fetch_fail")[:120]}
+                    "error": "fetch_fail"}
         return {"captured": (j.get("status") == "captured"),
-                "amount": int(j.get("amount", 0) or 0), "status": str(j.get("status", ""))}
+                "amount": j.get("amount"), "status": j.get("status"),
+                "id": j.get("id"), "order_id": j.get("order_id"),
+                "currency": j.get("currency")}
     except Exception as e:
         return {"captured": False, "amount": 0, "status": "", "error": str(e)[:100]}
 
@@ -922,10 +924,23 @@ def _verify_payment_locked(pay_order_id: str, rzp_order_id: str, payment_id: str
             return {"success": False, "reason": "not_captured",
                     "rzp_status": cap.get("status", ""),
                     "message_telugu": "\u23F3 Payment inka bank side capture \u0C05\u0C35\u0C4D\u0C35\u0C32\u0C47\u0C26\u0C41 (status: %s) \u2014 2 \u0C28\u0C3F\u0C2E\u0C3F\u0C37\u0C3E\u0C32\u0C32\u0C4B \u0C2E\u0C33\u0C4D\u0C32\u0C40 try \u0C1A\u0C46\u0C2F\u0C4D\u0C2F\u0C02\u0C21\u0C3F (\u0C21\u0C2C\u0C4D\u0C2C\u0C41\u0C32\u0C41 safe, credits capture \u0C05\u0C2F\u0C4D\u0C2F\u0C3E\u0C15\u0C47 add)" % (cap.get("status") or "pending")}
-        if int(cap.get("amount", 0)) != int(po.get("final_amount", 0) or 0) * 100:
+        if type(cap.get("amount")) is not int or cap["amount"] < 0:
+            return {"success": False, "reason": "amount_invalid",
+                    "message_telugu": "చెల్లింపు మొత్తం నిర్ధారణ కాలేదు. మళ్లీ ప్రయత్నించండి."}
+        if cap["amount"] != int(po.get("final_amount", 0) or 0) * 100:
             return {"success": False, "reason": "amount_mismatch",
                     "message_telugu": "\U0001F6AB Razorpay amount (\u20B9%s) \u2260 order amount (\u20B9%s) \u2014 safe abort (support \u0C15\u0C3F payment ID \u0C2A\u0C02\u0C2A\u0C02\u0C21\u0C3F)" % (
                         int(cap.get("amount", 0)) // 100, po.get("final_amount", 0))}
+        # The signed checkout response and fetched provider entity must identify
+        # the same payment/order in the currency this server charges.
+        for field, expected, reason in (
+            ("id", payment_id, "payment_mismatch"),
+            ("order_id", po.get("rzp_order_id"), "capture_order_mismatch"),
+            ("currency", "INR", "currency_mismatch"),
+        ):
+            if not isinstance(cap.get(field), str) or not expected or cap[field] != expected:
+                return {"success": False, "reason": reason,
+                        "message_telugu": "చెల్లింపు వివరాలు ఈ ఆర్డర్‌తో సరిపోలలేదు. సహాయం కోసం సంప్రదించండి."}
     po_before = copy.deepcopy(po)
     fulfillment_before = _snapshot_fulfillment_state(po)
     receipt_before = RECEIPTS.get(payment_id)
