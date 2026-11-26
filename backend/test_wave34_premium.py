@@ -160,7 +160,7 @@ try:
     # case C: captured + exact amount -> paid
     oC = _mk_order()
     cr0 = U1["credits"]
-    PP._rzp_payment_status = lambda pid: {"captured": True, "amount": 9900, "status": "captured"}
+    PP._rzp_payment_status = lambda pid: {"captured": True, "amount": 9900, "status": "captured", "id": pid, "currency": "INR", "order_id": oC["rzp_order_id"]}
     vC = client.post("/api/pay/verify", json={"order_id": oC["id"], "razorpay_order_id": oC["rzp_order_id"],
                                               "razorpay_payment_id": "pay_W34OK" + RUN, "razorpay_signature": _sig(oC["rzp_order_id"], "pay_W34OK" + RUN)},
                      headers=H_OWNER1)
