@@ -11,7 +11,8 @@ const profile={tsap_id:id,full_name:'Fictional Audit',gender:'Bride',age:29,
  height:attack,caste:attack,sub_caste:attack,gothram:attack,star:attack,rasi:attack,
  education:attack,education_detail:attack,job:attack,company:attack,salary:attack,
  district:attack,state:'TS',marital_status:attack,family_type:attack,family_status:attack,
- dosham:attack,diet:attack,profile_for:attack,about_myself:attack};
+ dosham:attack,diet:attack,profile_for:attack,about_myself:attack,
+ is_nri:true,country:attack};
 fs.mkdirSync('artifacts/profile-input-sinks',{recursive:true});
 for(const lang of ['en','te'])test(`legacy profile markup stays inert in view and print ${lang}`,async({page})=>{
  await page.setViewportSize({width:390,height:950});
@@ -27,6 +28,7 @@ for(const lang of ['en','te'])test(`legacy profile markup stays inert in view an
  });
  await page.goto((lang==='en'?'/en':'')+`/search/${id}`);
  await expect(page.getByRole('heading',{name:'Fictional',exact:true})).toBeVisible();
+ const badge=page.locator('span').filter({hasText:/^✈️ NRI/});await expect(badge).toHaveCount(1);await expect(badge).toContainText('<img');await expect(badge.locator('img,script,[onerror]')).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
  await expect(page.locator('main img[src="x"],main script:not([type="application/ld+json"])')).toHaveCount(0);
  // Capture the real print document before browser printing can close its window.
@@ -51,4 +53,13 @@ for(const lang of ['en','te'])test(`legacy profile markup stays inert in view an
  await printPage.screenshot({path:`artifacts/profile-input-sinks/print-${lang}.png`,fullPage:true});
  await printPage.close();expect(writes).toEqual(['/api/view']);
  expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
+});
+
+// A hostile legacy flag can only choose a fixed badge, never become markup.
+for(const lang of ['en','te'])test(`hostile legacy is_nri is never interpolated ${lang}`,async({page})=>{
+ await page.addInitScript(()=>{(window as any).__profileXss=0});
+ await page.route('**/api/**',r=>r.fulfill({json:new URL(r.request().url()).pathname===`/api/search/${id}`?{profile:{...profile,is_nri:attack,country:'USA'}}:{success:true,items:[],valid:false}}));
+ await page.goto((lang==='en'?'/en':'')+`/search/${id}`);
+ const badge=page.locator('span').filter({hasText:/^✈️ NRI/});await expect(badge).toHaveText('✈️ NRI • USA');
+ await expect(badge.locator('img,script,[onerror]')).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
 });
