@@ -137,23 +137,45 @@ def test_webhook_with_member_cookie_still_requires_provider_signature(monkeypatc
     assert "csrf_required" not in response.text
 
 
+def runtime_mutations(routes, prefix=""):
+    """Walk served paths, including lazy FastAPI includes and mounted apps."""
+    for route in routes:
+        effective = getattr(route, "effective_route_contexts", None)
+        if callable(effective):
+            for context in effective():
+                target = context.starlette_route or context
+                yield from runtime_mutations([target], prefix)
+            continue
+        path = prefix + getattr(route, "path", "")
+        for method in getattr(route, "methods", set()) or set():
+            if method in {"POST", "PUT", "PATCH", "DELETE"}:
+                yield method, path
+        children = getattr(route, "routes", None)
+        if children is not None:
+            yield from runtime_mutations(children, path.rstrip("/"))
+
+
 def uncovered_runtime_mutations(app, declared):
-    return {(method, route.path) for route in app.routes
-            for method in (getattr(route, "methods", set()) or set())
-            if method in {"POST", "PUT", "PATCH", "DELETE"}
-            and M._member_mutation_requires_csrf(route_path(route.path))
-            and (method, route.path) not in declared}
+    return {(method, path) for method, path in runtime_mutations(app.routes)
+            if M._member_mutation_requires_csrf(route_path(path))
+            and (method, path) not in declared}
 
 
-def test_runtime_member_mutations_cannot_escape_inventory():
-    assert not uncovered_runtime_mutations(M.app, ALL_DECLARED_MUTATIONS)
+def test_runtime_member_mutations_cannot_escape_inventory(monkeypatch):
+    # Run real lifespan in disposable state, but do not start background workers.
+    monkeypatch.setattr(M, "start_worker", lambda: False)
+    monkeypatch.setattr(M, "start_wa_worker", lambda: False)
+    monkeypatch.setattr(M.RETENTION, "start_daily", lambda *args: None)
+    with TestClient(M.app):
+        assert M.app.state.ready
+        assert not uncovered_runtime_mutations(M.app, ALL_DECLARED_MUTATIONS)
 
 
 def test_attribute_owner_guard_mutant_is_discovered():
-    source = "@app.post('/api/fixture')\ndef handler():\n    hardening.require_owner(request, identity)\n"
-    owners, declared = mutation_inventory([source])
-    assert ("POST", "/api/fixture") in owners
-    assert ("POST", "/api/fixture") in declared
+    # Mutate actual repository sources instead of only a fabricated handler.
+    sources = [p.read_text() for p in [BACKEND / "main.py", *sorted((BACKEND / "routers").glob("*.py"))]]
+    mutated = [source.replace("require_owner(", "hardening.require_owner(") for source in sources]
+    assert mutation_inventory(mutated)[0] == OWNER_ROUTES
 
 
 def test_runtime_add_api_route_mutant_is_caught():
@@ -170,3 +192,39 @@ def test_family_invite_acceptance_keeps_prior_public_behavior_with_cookie(monkey
     assert response.status_code == 400
     assert calls == ["FICTIONAL-INVITE"]
     assert "csrf_required" not in response.text
+
+
+def test_included_router_add_api_route_mutant_is_caught():
+    from fastapi import FastAPI, APIRouter
+    app = FastAPI()
+    inner = APIRouter()
+    inner.add_api_route("/pay/fixture", lambda: {}, methods=["POST"])
+    outer = APIRouter()
+    outer.include_router(inner, prefix="/nested")
+    app.include_router(outer, prefix="/api")
+    # Nested includes preserve the effective path, independent of the policy zone.
+    assert ("POST", "/api/nested/pay/fixture") in set(runtime_mutations(app.routes))
+    direct = FastAPI()
+    direct.include_router(inner, prefix="/api")
+    assert uncovered_runtime_mutations(direct, set()) == {("POST", "/api/pay/fixture")}
+
+
+def test_mounted_subapp_mutant_is_caught():
+    from fastapi import FastAPI
+    app, sub = FastAPI(), FastAPI()
+    sub.add_api_route("/fixture", lambda: {}, methods=["POST"])
+    app.mount("/api/pay", sub)
+    assert uncovered_runtime_mutations(app, set()) == {("POST", "/api/pay/fixture")}
+
+
+def test_lifespan_registered_mutant_is_caught():
+    from contextlib import asynccontextmanager
+    from fastapi import FastAPI
+    @asynccontextmanager
+    async def lifespan(app):
+        app.add_api_route("/api/pay/startup-fixture", lambda: {}, methods=["POST"])
+        yield
+    app = FastAPI(lifespan=lifespan)
+    assert not uncovered_runtime_mutations(app, set())
+    with TestClient(app):
+        assert uncovered_runtime_mutations(app, set()) == {("POST", "/api/pay/startup-fixture")}
