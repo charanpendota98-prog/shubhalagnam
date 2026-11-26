@@ -1,8 +1,9 @@
 "use client";
+import { partnerRequestInit } from "@/lib/partner-request";
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
-import { authHeaders, readApiJson, getCsrfToken } from "@/lib/api";
+import { authHeaders, readApiJson } from "@/lib/api";
 import { useLang } from "@/lib/lang";
 import { SITE_CONFIG } from "@/lib/site-config";
 type Campaign = {id:string;name:string;channel:string;status:string;link:string;clicks:number;registrations:number;eligible_rewards:number;recorded_earnings_inr:number;disclosure_en:string;disclosure_te:string};
@@ -36,7 +37,7 @@ export default function CreatorCampaigns({identity,partnerToken}:{identity:strin
   const controller=new AbortController();controllers.current.add(controller);
   let timer:ReturnType<typeof setTimeout>|undefined;
   try{return await Promise.race([
-   (async()=>{const response=await fetch(url,{...init,headers:(()=>{const headers=new Headers(init?.headers);const csrf=getCsrfToken();if(csrf&&["POST","PUT","PATCH","DELETE"].includes((init?.method||"GET").toUpperCase()))headers.set("X-CSRF-Token",csrf);return headers;})(),signal:controller.signal});return{ok:response.ok,status:response.status,data:await readApiJson(response)};})(),
+   (async()=>{const response=await fetch(url,{...partnerRequestInit(url,init),signal:controller.signal});return{ok:response.ok,status:response.status,data:await readApiJson(response)};})(),
    new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener("abort",()=>reject(new Error("Request cancelled")),{once:true});})
   ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
  },[]);
