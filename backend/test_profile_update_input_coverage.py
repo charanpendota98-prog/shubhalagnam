@@ -101,6 +101,58 @@ class ProfileInputCoverage(unittest.TestCase):
                 self.assertEqual(self.row, before)
                 persist.assert_not_called()
 
+    def test_payload_order_rejection_never_temporarily_mutates_record(self):
+        class TrackedRow(dict):
+            def __deepcopy__(self, memo):
+                return copy.deepcopy(dict(self), memo)
+
+            def __setitem__(self, key, value):
+                writes.append((key, value))
+                super().__setitem__(key, value)
+
+        fields = {'full_name': 'Must Not Stick', 'weight': '55 kg', 'is_nri': {}}
+        for body in (fields, dict(reversed(list(fields.items())))):
+            with self.subTest(order=list(body)):
+                writes = []
+                row = TrackedRow(self.row)
+                main.DB_USERS[:] = [row]
+                main._USERS_ID_MAP.clear()
+                before = copy.deepcopy(dict(row))
+                with patch.object(main, '_persist_core_state') as persist:
+                    response = self.post(body)
+                self.assertEqual(response.status_code, 400, response.text)
+                self.assertEqual(dict(row), before)
+                self.assertEqual(writes, [], 'Validation must precede even temporary record writes')
+                persist.assert_not_called()
+
+    def test_is_nri_never_temporarily_stores_a_raw_value(self):
+        writes = []
+        class TrackedRow(dict):
+            def __deepcopy__(self, memo):
+                return copy.deepcopy(dict(self), memo)
+
+            def __setitem__(self, key, value):
+                if key == 'is_nri':
+                    writes.append(value)
+                super().__setitem__(key, value)
+        row = TrackedRow(self.row)
+        main.DB_USERS[:] = [row]
+        main._USERS_ID_MAP.clear()
+        with patch.object(main, '_persist_core_state', return_value=True):
+            response = self.post({'is_nri': 'false'})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIs(row['is_nri'], False)
+        self.assertEqual(writes, [False], 'Only the normalized boolean may enter the shared record')
+
+    def test_registration_and_update_weight_caps_match(self):
+        tree = ast.parse(pathlib.Path(main.__file__).read_text())
+        limits = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Tuple) and len(node.elts) == 2:
+                if isinstance(node.elts[0], ast.Constant) and node.elts[0].value == 'weight':
+                    limits.append(ast.literal_eval(node.elts[1]))
+        self.assertEqual(limits, [TEXT_LIMITS['weight']])
+
     def test_owner_guard_and_failed_checkpoint_keep_original_record(self):
         before = copy.deepcopy(self.row)
         fields = {key: '<script>alert(1)</script>' for key in TEXT_LIMITS}

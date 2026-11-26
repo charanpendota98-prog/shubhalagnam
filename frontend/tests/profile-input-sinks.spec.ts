@@ -2,6 +2,8 @@ import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
 
 // Legacy stored text is untrusted even after new-write sanitization is fixed.
+// The six newly sanitized text fields are not displayed by ProfileView/print.
+// These tests cover only existing printed-field escapes, not their output escaping.
 // Every API is intercepted. No real profile, mutation or production token is used.
 const id='FICTIONAL-SINK-AUDIT';
 const attack='<img src=x onerror="window.__profileXss=1"><script>window.__profileXss=1</script>';
@@ -9,8 +11,7 @@ const profile={tsap_id:id,full_name:'Fictional Audit',gender:'Bride',age:29,
  height:attack,caste:attack,sub_caste:attack,gothram:attack,star:attack,rasi:attack,
  education:attack,education_detail:attack,job:attack,company:attack,salary:attack,
  district:attack,state:'TS',marital_status:attack,family_type:attack,family_status:attack,
- dosham:attack,diet:attack,profile_for:attack,about_myself:attack,
- birth_time:attack,weight:attack,brothers:attack,sisters:attack,exp_age_min:attack,exp_age_max:attack,is_nri:attack};
+ dosham:attack,diet:attack,profile_for:attack,about_myself:attack};
 fs.mkdirSync('artifacts/profile-input-sinks',{recursive:true});
 for(const lang of ['en','te'])test(`legacy profile markup stays inert in view and print ${lang}`,async({page})=>{
  await page.setViewportSize({width:390,height:950});

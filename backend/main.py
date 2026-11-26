@@ -3747,7 +3747,7 @@ async def register(
                    ("father_name", 60), ("mother_name", 60), ("father_occupation", 60), ("mother_occupation", 60),
                    ("native_place", 60), ("college", 80), ("company", 80), ("education_detail", 120),
                    ("work_location", 60), ("current_city", 40), ("pincode", 6), ("blood_group", 8),
-                   ("weight", 12), ("experience", 12), ("exp_job", 60), ("exp_location", 60), ("exp_caste", 40),
+                   ("weight", 20), ("experience", 12), ("exp_job", 60), ("exp_location", 60), ("exp_caste", 40),
                    ("mandal", 40), ("gothram", 40), ("sub_caste", 40), ("star", 30), ("rasi", 30)):
         if _k in user:
             user[_k] = clean(user.get(_k), _n, "register:" + _k)
