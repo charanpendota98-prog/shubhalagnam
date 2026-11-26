@@ -1,6 +1,7 @@
 /* System-first font stack avoids render-blocking third-party font requests. */
 @import "tailwindcss";
 @import "./emoji-font.css";
+@import "./telugu-font.css";
 @config "../../tailwind.config.mjs";
 
 :root {
