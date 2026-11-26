@@ -11,7 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from test_storage import isolate_test_stores
 isolate_test_stores('capture-provider-binding')
-os.environ.update(APP_ENV='test', TSAP_AUTH_SECRET='isolated-capture-secret')
+os.environ.update(APP_ENV='test', TSAP_AUTH_MODE='enforce', TSAP_AUTH_SECRET='isolated-capture-secret')
 import main as M
 import paypro as P
 
@@ -55,7 +55,8 @@ def verify():
     ('currency', 'USD', 'currency_mismatch'), ('currency', None, 'currency_mismatch'),
     ('currency', 'inr', 'currency_mismatch'), ('amount', '9900', 'amount_invalid'),
     ('amount', 9900.5, 'amount_invalid'), ('amount', True, 'amount_invalid'),
-    ('amount', None, 'amount_invalid'), ('amount', 9800, 'amount_mismatch'),
+    ('amount', None, 'amount_invalid'), ('amount', -1, 'amount_invalid'),
+    ('amount', 9800, 'amount_mismatch'),
 ])
 def test_invalid_provider_entity_never_fulfills(order, monkeypatch, field, value, reason):
     po, user = order
@@ -145,3 +146,64 @@ def test_provider_fetch_failures_do_not_grant(order, monkeypatch, failure):
     assert verify()['reason'] == 'not_captured'
     assert order[0]['status'] == 'created' and order[1]['credits'] == 0
     assert not P.RECEIPTS and not M.DB_PAYMENTS
+
+
+def route_verify(provider_order='order_fixture'):
+    from fastapi.testclient import TestClient
+    import hardening as H
+    signature = hmac.new(b'fixture-secret', (provider_order + '|pay_fixture').encode(), hashlib.sha256).hexdigest()
+    return TestClient(M.app).post('/api/pay/verify', json={
+        'order_id': 'FICTIONAL-ORDER', 'razorpay_order_id': provider_order,
+        'razorpay_payment_id': 'pay_fixture', 'razorpay_signature': signature,
+    }, headers={'Authorization': 'Bearer ' + H.sign_token('FICTIONAL-CAPTURE')})
+
+
+def test_empty_stored_and_fetched_order_never_fulfills(order, monkeypatch):
+    order[0]['rzp_order_id'] = ''
+    payload = entity(); payload['order_id'] = ''
+    monkeypatch.setattr(P, '_rzp_payment_status', lambda _: payload)
+    result = route_verify()
+    assert result.status_code == 400
+    assert order[0]['status'] == 'created' and order[1]['credits'] == 0
+    assert not P.RECEIPTS and not M.DB_PAYMENTS
+
+
+@pytest.mark.parametrize('missing', ['id', 'order_id', 'currency', 'amount'])
+def test_missing_capture_key_is_clean_http_400(order, monkeypatch, missing):
+    payload = entity(); del payload[missing]
+    monkeypatch.setattr(P, '_rzp_payment_status', lambda _: payload)
+    result = route_verify()
+    assert result.status_code == 400
+    assert order[0]['status'] == 'created' and order[1]['credits'] == 0
+    assert not P.RECEIPTS and not M.DB_PAYMENTS
+
+
+def test_provider_entity_id_order_swap_is_rejected(order, monkeypatch):
+    payload = entity(); payload['id'], payload['order_id'] = payload['order_id'], payload['id']
+    monkeypatch.setattr(P, '_rzp_payment_status', lambda _: payload)
+    assert verify()['reason'] == 'payment_mismatch'
+    assert order[0]['status'] == 'created' and order[1]['credits'] == 0
+
+
+def test_fetch_fail_is_constant_not_provider_description(monkeypatch):
+    import requests
+    monkeypatch.setattr(P, '_key_id', lambda: 'fixture-key')
+    monkeypatch.setattr(P, '_secret', lambda: 'fixture-secret')
+    class Response:
+        status_code = 200
+        def json(self): return {'error': {'description': 'fictional provider-controlled detail'}}
+    monkeypatch.setattr(requests, 'get', lambda *a, **k: Response())
+    assert P._rzp_payment_status('pay_fixture') == {
+        'captured': False, 'amount': 0, 'status': '', 'error': 'fetch_fail'}
+
+
+def test_wave34_case_c_route_captured_exact_metadata_adds_five_once(order, monkeypatch):
+    # Runs in CI's pytest loop even when the legacy Wave34 script skips on no merchant keys.
+    monkeypatch.setattr(P, '_rzp_payment_status', lambda pid: {
+        'captured': True, 'amount': 9900, 'status': 'captured',
+        'id': pid, 'currency': 'INR', 'order_id': order[0]['rzp_order_id']})
+    result = route_verify()
+    assert result.status_code == 200 and result.json()['success'] is True
+    assert order[0]['status'] == 'paid' and order[1]['credits'] == 5
+    assert route_verify().json()['duplicate'] is True
+    assert order[1]['credits'] == 5 and len(M.DB_PAYMENTS) == 1 and len(P.RECEIPTS) == 1
