@@ -35,7 +35,7 @@ const config = {
         ink: "#1A1A1A",
       },
       fontFamily: {
-        sans: ["Poppins", "Manavivaha Native Apple", "Manavivaha Native Segoe", "Manavivaha Native Noto", "Manavivaha Emoji", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["Poppins", "'Noto Sans Telugu'", "Manavivaha Native Apple", "Manavivaha Native Segoe", "Manavivaha Native Noto", "Manavivaha Emoji", "system-ui", "-apple-system", "sans-serif"],
         telugu: ["'Noto Sans Telugu'", "Manavivaha Native Apple", "Manavivaha Native Segoe", "Manavivaha Native Noto", "Manavivaha Emoji", "system-ui", "sans-serif"],
       },
       boxShadow: {

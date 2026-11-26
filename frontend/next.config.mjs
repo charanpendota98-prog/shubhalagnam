@@ -105,6 +105,7 @@ const nextConfig = {
         source: '/:path*.:ext(png|jpg|jpeg|webp|avif|svg|ico|woff2|mp4)',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
       },
+      { source: '/icons/fonts/manavivaha-telugu-v1.woff2', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/icons/fonts/manavivaha-emoji-v1.woff2', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
     ];
   },
