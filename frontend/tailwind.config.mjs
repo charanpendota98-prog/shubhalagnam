@@ -35,8 +35,8 @@ const config = {
         ink: "#1A1A1A",
       },
       fontFamily: {
-        sans: ["Poppins", "system-ui", "-apple-system", "sans-serif"],
-        telugu: ["'Noto Sans Telugu'", "system-ui", "sans-serif"],
+        sans: ["Poppins", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Manavivaha Emoji", "system-ui", "-apple-system", "sans-serif"],
+        telugu: ["'Noto Sans Telugu'", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Manavivaha Emoji", "system-ui", "sans-serif"],
       },
       boxShadow: {
         brand: "0 10px 40px rgba(122, 12, 46, 0.15)",

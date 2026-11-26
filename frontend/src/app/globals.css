@@ -1,5 +1,6 @@
 /* System-first font stack avoids render-blocking third-party font requests. */
 @import "tailwindcss";
+@import "./emoji-font.css";
 @config "../../tailwind.config.mjs";
 
 :root {
@@ -80,7 +81,7 @@ body {
   z-index: 1;
   width: 100%;
   min-width: 0;
-  font-family: 'Poppins', 'Noto Sans Telugu', system-ui, sans-serif;
+  font-family: 'Poppins', 'Noto Sans Telugu', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', system-ui, sans-serif;
   background:
     radial-gradient(ellipse at 6% 5%, rgba(212,175,55,.09), transparent 34rem),
     radial-gradient(ellipse at 96% 12%, rgba(15,118,110,.065), transparent 32rem),
@@ -246,7 +247,7 @@ button:not(:disabled), a[href] { touch-action: manipulation; }
 }
 
 .telugu {
-  font-family: 'Noto Sans Telugu', system-ui, sans-serif;
+  font-family: 'Noto Sans Telugu', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', system-ui, sans-serif;
   line-height: 1.55;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -613,7 +614,7 @@ button:not(:disabled):active { transform: scale(0.97); }
 }
 .brand-name {
   color: #800020;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: Georgia, 'Times New Roman', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', serif;
   font-size: clamp(1.32rem, 2vw, 1.58rem);
   font-weight: 800;
   line-height: 1.08;
@@ -622,14 +623,14 @@ button:not(:disabled):active { transform: scale(0.97); }
   text-shadow: 0 1px 0 #fff, 0 2px 8px rgba(128, 0, 32, .08);
 }
 .brand-name:not(.telugu) {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: Georgia, 'Times New Roman', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', serif;
   letter-spacing: -0.035em;
 }
 .brand-name-telugu {
   display: block;
   margin-top: 2px;
   padding-block: .02em;
-  font-family: 'Noto Serif Telugu', 'Noto Sans Telugu', serif;
+  font-family: 'Noto Serif Telugu', 'Noto Sans Telugu', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', serif;
   font-size: clamp(.82rem, 1.15vw, .98rem);
   font-weight: 800;
   line-height: 1.28;
@@ -651,7 +652,7 @@ button:not(:disabled):active { transform: scale(0.97); }
   margin-left: .28rem;
   color: #c4931f;
   -webkit-text-fill-color: #c4931f;
-  font-family: Georgia, serif;
+  font-family: Georgia, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Manavivaha Emoji', serif;
   font-size: .45em;
   vertical-align: top;
   transform: translateY(.15em);
