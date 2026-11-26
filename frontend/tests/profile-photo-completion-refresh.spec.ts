@@ -182,7 +182,15 @@ for(const lang of ['en','te'])for(const mode of ['groom','malformed','network'])
  if(mode==='network')await page.evaluate(()=>(window as any).rejectSave());
  else await release(page,'save',mode==='groom'?backendErrors.groom400:{success:false},mode==='groom'?400:200);
  const feedback=page.getByRole('alert').filter({hasText:lang==='en'?/Your edits are kept/:/మీ వివరాలు ఇక్కడే ఉన్నాయి/});
- await expect(feedback).toBeFocused();const bounds=await feedback.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.y).toBeGreaterThanOrEqual(65);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(885);
+ await expect(feedback).toBeFocused();
+ const inSafeViewport=async()=>{const b=await feedback.boundingBox();return !!b&&b.y>=72&&b.y+b.height<=878};
+ await expect.poll(inSafeViewport).toBe(true);
+ // Deterministic late summary layout shift, with no test-side scrolling.
+ await feedback.evaluate(e=>{(e.previousElementSibling as HTMLElement).style.paddingBottom='1000px'});
+ await expect.poll(inSafeViewport).toBe(true);await expect(feedback).toBeFocused();
  await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
  await page.screenshot({path:`artifacts/profile-completion-refresh/focus-${lang}-${mode}.png`});
+ const field=page.locator('#me-full_name');await field.focus();
+ await feedback.evaluate(e=>{(e.previousElementSibling as HTMLElement).style.paddingBottom='1400px'});
+ await settled(page);await expect(field).toBeFocused();
 });

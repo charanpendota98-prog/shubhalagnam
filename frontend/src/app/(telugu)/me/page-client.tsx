@@ -1364,10 +1364,29 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (msg && !msg.ok) {
-      feedbackRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
-      feedbackRef.current?.focus({ preventScroll: true });
-    }
+    const feedback = feedbackRef.current;
+    if (!msg || msg.ok || !feedback) return;
+    let frame = 0, active = true;
+    const keepVisible = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!active || document.activeElement !== feedback) return;
+        const bounds = feedback.getBoundingClientRect();
+        if (bounds.top < 72 || bounds.bottom > window.innerHeight - 72) {
+          feedback.scrollIntoView({ block: "center", behavior: "instant" });
+        }
+      });
+    };
+    feedback.scrollIntoView({ block: "center", behavior: "instant" });
+    feedback.focus({ preventScroll: true });
+    // Fonts/summary content can finish laying out after the failed save.
+    // Correct that shift only while this alert still owns keyboard focus.
+    const observer = new ResizeObserver(keepVisible);
+    if (feedback.previousElementSibling) observer.observe(feedback.previousElementSibling, { box: "border-box" });
+    observer.observe(feedback, { box: "border-box" });
+    void document.fonts.ready.then(() => { if (active) keepVisible(); });
+    keepVisible();
+    return () => { active = false; cancelAnimationFrame(frame); observer.disconnect(); };
   }, [msg]);
   const selectedCaste = String(profile.caste || "");
   const isListedCaste = CASTES.some((caste) =>
