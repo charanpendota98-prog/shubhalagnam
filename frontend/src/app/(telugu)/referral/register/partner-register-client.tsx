@@ -12,7 +12,7 @@ import CreatorCampaigns from "@/components/CreatorCampaigns";
 import Link from "@/components/LocaleLink";
 import { Duo, useDuo } from "@/lib/duo";
 import { useLang } from "@/lib/lang";
-import { apiDisplayMessage, readApiJson} from "@/lib/api";
+import { apiDisplayMessage, readApiJson, getCsrfToken} from "@/lib/api";
 import { DISTRICTS_BY_STATE } from "@/lib/telugu-data";
 
 const STATES = [
@@ -67,7 +67,7 @@ export default function PartnerRegisterPage() {
     const controller=new AbortController();controllers.current.add(controller);
     let timer:ReturnType<typeof setTimeout>|undefined;
     try {return await Promise.race([
-      (async()=>{const response=await fetch(url,{...init,signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
+      (async()=>{const response=await fetch(url,{...init,headers:(()=>{const headers=new Headers(init?.headers);const csrf=getCsrfToken();if(csrf&&["POST","PUT","PATCH","DELETE"].includes((init?.method||"GET").toUpperCase()))headers.set("X-CSRF-Token",csrf);return headers;})(),signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
       new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener('abort',()=>reject(new Error("Request cancelled")),{once:true});})
     ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
   };
