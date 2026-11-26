@@ -1,4 +1,5 @@
 "use client";
+import { partnerRequestInit } from "@/lib/partner-request";
 
 import "@/components/partner-workspace.css";
 
@@ -67,7 +68,7 @@ export default function PartnerRegisterPage() {
     const controller=new AbortController();controllers.current.add(controller);
     let timer:ReturnType<typeof setTimeout>|undefined;
     try {return await Promise.race([
-      (async()=>{const response=await fetch(url,{...init,signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
+      (async()=>{const response=await fetch(url,{...partnerRequestInit(url,init),signal:controller.signal});const data=await readApiJson(response);return {status:response.status,data};})(),
       new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("Request unconfirmed"));},20_000);controller.signal.addEventListener('abort',()=>reject(new Error("Request cancelled")),{once:true});})
     ]);}finally{clearTimeout(timer);controllers.current.delete(controller);}
   };
