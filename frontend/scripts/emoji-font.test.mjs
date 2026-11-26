@@ -27,7 +27,7 @@ test('native emoji local aliases cannot claim Latin digits spaces or Telugu',()=
  const css=fs.readFileSync('src/app/emoji-font.css','utf8');
  for(const name of ['Apple','Segoe','Noto']){
   const rule=css.split(`font-family: 'Manavivaha Native ${name}';`)[1]?.split('}')[0];
-  assert.ok(rule);assert.match(rule,/src: local\('/);assert.match(rule,/unicode-range:/);
+  const expected={Apple:'Apple Color Emoji',Segoe:'Segoe UI Emoji',Noto:'Noto Color Emoji'}[name];assert.ok(rule);assert.equal(rule.match(/src:\s*([^;]+);/)?.[1],`local('${expected}')`);assert.match(rule,/unicode-range:/);
   const ranges=rule.split('unicode-range: ')[1].split(';')[0].split(',').map(x=>parseInt(x.slice(2),16));
   assert.deepEqual(ranges,manifest.codepoints);
  }

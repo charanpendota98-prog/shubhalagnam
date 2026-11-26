@@ -16,12 +16,25 @@ test('slow Telugu font never hides English text and failure leaves controls usab
  await page.route('**/api/**',r=>r.fulfill({json:{success:true,items:[]}}));await page.route('**'+asset,async r=>{requested=true;await held;await r.abort()});
  await page.goto('/en/referral/register',{waitUntil:'domcontentloaded'});await expect.poll(()=>requested).toBe(true);
  await expect(page.getByRole('heading',{level:1})).toBeVisible();await expect(page.getByText('Students',{exact:true})).toBeVisible();
+ // Inspect pixels, not only layout boxes or a page-wide paint event.
+ expect(await page.evaluate(()=>[...document.fonts].find(f=>f.family==='Noto Sans Telugu')?.display)).toBe('swap');
+ const cdp=await page.context().newCDPSession(page);
+ for(const [id,text] of [['paint-en','English text paint'],['paint-te','తెలుగు అక్షరాలు']]){
+  await page.evaluate(({id,text})=>{const e=document.createElement('div');e.id=id;e.textContent=text;e.style.cssText='position:fixed;left:0;top:120px;z-index:2147483647;width:600px;height:80px;background:white;color:black;font:24px "Noto Sans Telugu",sans-serif';document.body.append(e)},{id,text});
+  const clip={x:0,y:120,width:600,height:80,scale:1};
+  const painted=await cdp.send('Page.captureScreenshot',{format:'png',clip});
+  await page.locator('#'+id).evaluate(e=>(e as HTMLElement).style.color='transparent');
+  const blank=await cdp.send('Page.captureScreenshot',{format:'png',clip});
+  expect(painted.data,id+' must have painted glyph pixels while font is pending').not.toBe(blank.data);
+  await page.locator('#'+id).evaluate(e=>e.remove());
+ }
  // Chromium's text-paint event must happen while the font is still held.
  await expect.poll(()=>page.evaluate(()=>performance.getEntriesByName('first-contentful-paint').length)).toBe(1);
  const capture=await (await page.context().newCDPSession(page)).send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('artifacts/telugu-font/english-font-pending.png',Buffer.from(capture.data,'base64'));release();await page.evaluate(()=>document.fonts.ready);
  const name=page.getByRole('textbox',{name:'Your name',exact:true});await name.fill('Fictional Font Failure');await expect(name).toHaveValue('Fictional Font Failure');await expect(page.getByRole('button',{name:/Create my Partner ID/})).toBeVisible();
 });
-test('English logo and footer share one cached Telugu font body across navigation',async({page})=>{
+test('English logo and footer share one cached Telugu font body across navigation',async({page,request})=>{
+ const response=await request.get(asset);expect(response.status()).toBe(200);expect(response.headers()['content-type']).toMatch(/^font\/woff2(?:;|$)/);
  // No request interception here: Playwright routing disables the HTTP cache.
  await page.goto('/en/login');await page.evaluate(()=>document.fonts.ready);
  const first=await page.evaluate(a=>performance.getEntriesByType('resource').filter(e=>e.name.endsWith(a)).map(e=>{const r=e as PerformanceResourceTiming;return{body:r.encodedBodySize,transfer:r.transferSize}}),asset);expect(first).toHaveLength(1);expect(first[0].body).toBe(120204);expect(first[0].transfer).toBeGreaterThan(0);
