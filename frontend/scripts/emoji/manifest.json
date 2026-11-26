@@ -1,8 +1,8 @@
 {
   "source_url": "https://fonts.gstatic.com/s/notocoloremoji/v50/Yq6P-KqIXTD0t4D9z1ESnKM3-HpFab4.ttf",
   "source_sha256": "4ef9eded85340042ca294f99d5102a7db26d690f6a5edb952395458ee3580600",
-  "output_sha256": "50e36624cd6789f909a9688dbf990e047e0048124c0fe16de67872b8d588aba4",
-  "bytes": 155468,
+  "output_sha256": "f75113cba0c64c8573713665856a1ca5ae6f772287e81538ba9a823fa095e6d5",
+  "bytes": 154792,
   "codepoints": [
     8205,
     8505,
@@ -211,7 +211,6 @@
   ],
   "fonttools_version": "4.65.0",
   "subset_input_codepoints": [
-    169,
     8205,
     8505,
     8599,

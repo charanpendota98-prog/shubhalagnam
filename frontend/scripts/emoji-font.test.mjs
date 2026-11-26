@@ -13,7 +13,14 @@ test('emoji subset bytes, license and text ranges remain bounded',()=>{
  const css=fs.readFileSync('src/app/emoji-font.css','utf8');
  assert.match(css,/tech\(color-COLRv1\)/);
  assert.match(css,/font-display: swap/);
- for(const cp of manifest.codepoints)assert.ok(css.includes('U+'+cp.toString(16).toUpperCase()));
+ const rules=[...css.matchAll(/@font-face\s*\{([^}]+)\}/g)].map(m=>m[1]);
+ assert.equal(rules.length,4);
+ for(const family of ['Manavivaha Emoji','Manavivaha Native Apple','Manavivaha Native Segoe','Manavivaha Native Noto']){
+  const matches=rules.filter(rule=>rule.includes(`font-family: '${family}';`));assert.equal(matches.length,1,family);
+  const match=matches[0].match(/unicode-range:\s*([^;]+);/);assert.ok(match,family+' range missing');
+  const entries=match[1].split(',').map(x=>{assert.match(x,/^U\+[0-9A-F]+$/);return parseInt(x.slice(2),16)});
+  assert.deepEqual(entries,manifest.codepoints,family+' exact range');
+ }
  assert.ok(!css.includes('https:'));
 });
 test('native emoji local aliases cannot claim Latin digits spaces or Telugu',()=>{
@@ -24,8 +31,17 @@ test('native emoji local aliases cannot claim Latin digits spaces or Telugu',()=
   const ranges=rule.split('unicode-range: ')[1].split(';')[0].split(',').map(x=>parseInt(x.slice(2),16));
   assert.deepEqual(ranges,manifest.codepoints);
  }
- for(const file of ['src/app/globals.css','tailwind.config.mjs']){
+ for(const file of ['src/app/globals.css','tailwind.config.mjs','src/app/(telugu)/search/[id]/ProfileView.tsx']){
   const stacks=fs.readFileSync(file,'utf8');
   assert.doesNotMatch(stacks,/Apple Color Emoji|Segoe UI Emoji|Noto Color Emoji/);
  }
+});
+
+test('versioned font asset keeps immutable one-year cache rule',async()=>{
+ const config=(await import('../next.config.mjs')).default;
+ const rules=await config.headers();
+ const matched=rules.filter(r=>r.source==='/icons/fonts/manavivaha-emoji-v1.woff2');
+ assert.equal(matched.length,1);
+ assert.ok(matched[0].headers.some(h=>h.key==='Cache-Control'&&h.value==='public, max-age=31536000, immutable'));
+ assert.equal(rules.at(-1),matched[0]);
 });

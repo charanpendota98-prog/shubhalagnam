@@ -14,7 +14,7 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`emoji fall
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  // Force the shipped font for an isolated probe, independent of CI's native emoji fonts.
  await page.evaluate(()=>{const el=document.createElement('span');el.id='emoji-font-probe';el.style.fontFamily='"Manavivaha Emoji"';el.textContent='🤝 🧑‍🌾 🪷';document.body.append(el)});
- await page.evaluate(()=>document.fonts.load('24px "Manavivaha Emoji"','🤝🧑‍🌾🪷'));
+ await page.evaluate(()=>document.fonts.load('24px "Manavivaha Emoji"','🤝🧑‍🌾🪷').catch(()=>[]));
  expect(await page.evaluate(()=>[...document.fonts].find(f=>f.family==='Manavivaha Emoji')?.status)).toBe('loaded');
  const cdp=await page.context().newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');
  const doc=await cdp.send('DOM.getDocument');const node=await cdp.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#emoji-font-probe'});
@@ -48,11 +48,24 @@ test('native emoji alias paints without downloading fallback when installed',asy
  test.skip(!available,'This environment has no native Noto emoji face; separate no-font cases cover download.');
  const requested:string[]=[];page.on('request',r=>{if(r.url().includes('/icons/fonts/'))requested.push(r.url())});
  await page.evaluate(()=>{const e=document.createElement('span');e.id='native-probe';e.style.fontFamily='"Manavivaha Native Noto","Manavivaha Emoji",sans-serif';e.textContent='🤝';document.body.append(e)});
- await page.evaluate(()=>document.fonts.load('24px "Manavivaha Native Noto"','🤝'));
+ await page.evaluate(()=>document.fonts.load('24px "Manavivaha Native Noto"','🤝').catch(()=>[]));
  await page.locator('#native-probe').scrollIntoViewIfNeeded();await page.locator('#native-probe').screenshot({path:'artifacts/emoji-font/native-probe.png'});
  const cdp=await page.context().newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');
  const doc=await cdp.send('DOM.getDocument');const node=await cdp.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#native-probe'});
  const fonts=await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId});
  expect(fonts.fonts.some(f=>f.familyName==='Noto Color Emoji')).toBe(true);
  expect(requested).toHaveLength(0);
+});
+
+
+test('text-only rendering never requests the emoji font',async({page})=>{
+ const requests:string[]=[];
+ page.on('request',r=>{if(r.url().includes('/icons/fonts/'))requests.push(r.url())});
+ await page.route('**/emoji-text-only',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body><main id="text-only">Latin ABC xyz 0123456789 © తెలుగు అక్షరాలు</main></body></html>'}));
+ await page.goto('/emoji-text-only');
+ await page.addStyleTag({content:fs.readFileSync('src/app/emoji-font.css','utf8')+'\nbody{font-family:"Manavivaha Emoji",sans-serif}'});
+ await page.evaluate(()=>document.fonts.ready);
+ await page.locator('#text-only').screenshot({path:'artifacts/emoji-font/text-only.png'});
+ expect(requests).toEqual([]);
+ expect(await page.evaluate(()=>[...document.fonts].find(f=>f.family==='Manavivaha Emoji')?.status)).toBe('unloaded');
 });
