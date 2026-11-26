@@ -1362,6 +1362,32 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const [refreshingCompletion, setRefreshingCompletion] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const feedback = feedbackRef.current;
+    if (!msg || msg.ok || !feedback) return;
+    let frame = 0, active = true;
+    const keepVisible = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!active || document.activeElement !== feedback) return;
+        const bounds = feedback.getBoundingClientRect();
+        if (bounds.top < 72 || bounds.bottom > window.innerHeight - 72) {
+          feedback.scrollIntoView({ block: "center", behavior: "instant" });
+        }
+      });
+    };
+    feedback.scrollIntoView({ block: "center", behavior: "instant" });
+    feedback.focus({ preventScroll: true });
+    // Fonts/summary content can finish laying out after the failed save.
+    // Correct that shift only while this alert still owns keyboard focus.
+    const observer = new ResizeObserver(keepVisible);
+    if (feedback.previousElementSibling) observer.observe(feedback.previousElementSibling, { box: "border-box" });
+    observer.observe(feedback, { box: "border-box" });
+    void document.fonts.ready.then(() => { if (active) keepVisible(); });
+    keepVisible();
+    return () => { active = false; cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [msg]);
   const selectedCaste = String(profile.caste || "");
   const isListedCaste = CASTES.some((caste) =>
     caste !== OTHER_COMMUNITY_OPTION && caste.toLocaleLowerCase("en") === selectedCaste.toLocaleLowerCase("en")
@@ -1495,7 +1521,11 @@ function EditProfilePanel({ myId }: { myId: string }) {
         setCompletionUnavailable(false);
         setMsg({ ok: true, text: apiDisplayMessage(d, te, te ? "ప్రొఫైల్ వివరాలు అప్‌డేట్ అయ్యాయి." : "Profile details updated.") });
       } else {
-        setMsg({ ok: false, text: T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.") });
+        // Only explicit locale fields from a rejected write explain the failure.
+        // A malformed 2xx response is still unconfirmed, not an error reason.
+        const reason = !res.ok ? apiDisplayMessage({ detail_en: d?.detail_en, detail_te: d?.detail_te }, te, "") : "";
+        const fallback = T("సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.", "We could not confirm the save. Your edits are kept here; please retry.");
+        setMsg({ ok: false, text: reason ? `${reason} ${T("మీ వివరాలు ఇక్కడే ఉన్నాయి.", "Your edits are kept here.")}` : fallback });
         setCompletionUnavailable(true);
         void refreshCompletion();
       }
@@ -1622,7 +1652,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         </div>
       </div>
 
-      {msg && <div role={msg.ok ? "status" : "alert"} aria-live={msg.ok ? "polite" : "assertive"}><Msg m={msg} /></div>}
+      {msg && <div ref={feedbackRef} tabIndex={-1} role={msg.ok ? "status" : "alert"} aria-live={msg.ok ? "polite" : "assertive"}><Msg m={msg} /></div>}
 
       {/* Edit Form */}
       <form onSubmit={handleSave} className="bg-white rounded-3xl p-5 sm:p-7 border border-gold/30 shadow-md space-y-6">
@@ -2118,7 +2148,7 @@ function StreakPanel({ myId }: { myId: string }) {
     const { ok, data, errorTelugu } = await apiPost<Row>("/api/streak/claim", { tsap_id: myId });
     setBusy(false);
     if (ok && data?.success) {
-      setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "Claimed." : "Daily bonus claimed.") });
+      setMsg({ ok: true, text: apiDisplayMessage(data, te, te ? "రోజువారీ బోనస్ పొందారు." : "Daily bonus claimed.") });
       void load();
     } else setMsg({ ok: false, text: apiDisplayMessage(data, te, errorTelugu || (te ? "మళ్లీ ప్రయత్నించండి." : "Please try again.")) });
   };

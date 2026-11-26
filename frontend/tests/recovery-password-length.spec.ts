@@ -17,6 +17,6 @@ for(const lang of ['en','te'])for(const width of [320,390,1280])test(`recovery p
   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`artifacts/recovery-length/${process.env.PROOF_STAGE||'after'}-${lang}-${width}-${length}.png`,fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
  }
  if(process.env.PROOF_STAGE==='before')return;
- for(const length of [8,72]){await page.locator('#f-newpw').fill('x'.repeat(length));await page.locator('#f-confirmpw').fill('x'.repeat(length));await page.getByRole('button',{name:lang==='en'?/Reset Password & Login/:/పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి/}).click();await expect(page.locator('[role=status][aria-live=polite]')).toContainText('Fictional reset rejected.');}
+ for(const length of [8,72]){await page.locator('#f-newpw').fill('x'.repeat(length));await page.locator('#f-confirmpw').fill('x'.repeat(length));await page.getByRole('button',{name:lang==='en'?/Reset Password & Login/:/పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి/}).click();await expect(page.locator('[role=status][aria-live=polite]')).toContainText(lang==='en'?'Fictional reset rejected.':'సేవలో సమస్య ఏర్పడింది. మళ్లీ ప్రయత్నించండి.');if(lang==='te')await expect(page.locator('[role=status][aria-live=polite]')).not.toContainText('Fictional reset rejected.');}
  expect(writes).toEqual(['/api/auth/forgot-email','/api/auth/reset-email','/api/auth/reset-email']);
 });

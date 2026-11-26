@@ -1,0 +1,26 @@
+{
+  "groom400": {
+    "success": false,
+    "detail": "⚠️ Housewife / Homemaker (గృహిణి) does not apply to a Groom profile — వరుడి ప్రొఫైల్కు ‘గృహిణి / Housewife’ ఎంపిక వర్తించదు. Choose the work that describes this member — ఎ వ్యక్తికి సరయే ఉద్యోగం ఎంచుకోండి.",
+    "detail_en": "Housewife / Homemaker does not apply to a Groom profile. Choose the work that describes this member.",
+    "detail_te": "వరుడి ప్రొఫైల్‌కు గృహిణి ఎంపిక వర్తించదు. ఈ వ్యక్తికి సరైన ఉద్యోగం ఎంచుకోండి."
+  },
+  "district400": {
+    "success": false,
+    "detail": "⚠️ district సరిగ్గా ఇవ్వండి (2-80 characters)",
+    "detail_en": "Choose a valid value for district.",
+    "detail_te": "జిల్లా: సరైన ఎంపికను ఎంచుకోండి."
+  },
+  "persist503": {
+    "success": false,
+    "detail": "Profile changes could not be saved safely. Please try again.",
+    "detail_en": "Profile changes could not be saved safely. Please try again.",
+    "detail_te": "ప్రొఫైల్ మార్పులను భద్రపరచలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+  },
+  "privacy503": {
+    "success": false,
+    "detail": "Privacy change could not be applied safely. Please try again.",
+    "detail_en": "Privacy change could not be applied safely. Please try again.",
+    "detail_te": "ఫోటో గోప్యత మార్పును అమలు చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+  }
+}

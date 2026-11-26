@@ -86,7 +86,7 @@ export default function VerifyPage() {
         await load();
       }
     } catch {
-      setMsg(te ? "Network లేదు — మళ్లీ try చెయ్యండి" : "Network error — please retry.");
+      setMsg(te ? "అనుసంధానం కాలేదు. మళ్లీ ప్రయత్నించండి." : "Network error — please retry.");
     }
     setBusy(false);
   };
@@ -106,13 +106,13 @@ export default function VerifyPage() {
       });
       const d = await readApiJson(r).catch(() => ({}));
       if (!r.ok) {
-        setMsg(apiDisplayMessage(d, te, te ? "Selfie fail — మళ్లీ try చెయ్యండి" : "Selfie upload failed. Please try again."));
+        setMsg(apiDisplayMessage(d, te, te ? "సెల్ఫీని పంపలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Selfie upload failed. Please try again."));
       } else {
-        setMsg(apiDisplayMessage(d, te, te ? "Selfie వెళ్లింది" : "Selfie submitted for review."));
+        setMsg(apiDisplayMessage(d, te, te ? "సెల్ఫీ పరిశీలన కోసం పంపబడింది." : "Selfie submitted for review."));
         await load();
       }
     } catch {
-      setMsg(te ? "Network లేదు — మళ్లీ try చెయ్యండి" : "No network — retry");
+      setMsg(te ? "అనుసంధానం కాలేదు. మళ్లీ ప్రయత్నించండి." : "No network — retry");
     }
     if (fileRef.current) fileRef.current.value = "";
     setBusy(false);

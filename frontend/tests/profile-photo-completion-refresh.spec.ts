@@ -1,5 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 import fs from 'node:fs';
+import backendErrors from './fixtures/profile-update-errors.json';
 fs.mkdirSync('artifacts/profile-completion-refresh',{recursive:true});
 const owner='SYN-COMPLETION';
 const valid={success:true,profile:{tsap_id:owner,full_name:'Fictional saved name'},completeness_score:42,missing_fields:['education']};
@@ -159,4 +160,37 @@ for(const lang of ['en','te'])for(const mode of ['groom400','server503','proxy50
  else await release(page,'save',{detail:mode==='groom400'?realGroomRejection:'Profile changes could not be saved safely. Please try again.'},mode==='groom400'?400:503);
  await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);await release(page,'read2',updated);
  await expect(completion(page)).toContainText('100%');const feedback=page.getByText(lang==='en'?'We could not confirm the save. Your edits are kept here; please retry.':'సేవ్ అయిందని నిర్ధారించలేకపోయాం. మీ వివరాలు ఇక్కడే ఉన్నాయి; మళ్లీ ప్రయత్నించండి.',{exact:true});await expect(feedback).toBeVisible();await expect(feedback.locator('..')).toHaveAttribute('role','alert');await expect(warning(page)).toHaveCount(0);await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+});
+
+for(const lang of ['en','te'])for(const mode of ['groom400','persist503','privacy503','malformed200'])test(`structured backend save reason stays localized ${lang} ${mode}`,async({page})=>{
+ await page.setViewportSize({width:320,height:950});await overlap(page,lang);await release(page,'read1',valid);await save(page);
+ const payload=backendErrors[mode==='malformed200'?'groom400':mode as keyof typeof backendErrors];
+ await release(page,'save',payload,mode==='malformed200'?200:mode==='groom400'?400:503);
+ await expect.poll(()=>page.evaluate(()=>(window as any).completionReads)).toBe(2);await release(page,'read2',updated);
+ const reason=lang==='te'?payload.detail_te:payload.detail_en;
+ const feedback=page.getByRole('alert').filter({hasText:mode==='malformed200'?(lang==='te'?'సేవ్ అయిందని నిర్ధారించలేకపోయాం':'We could not confirm the save'):reason});
+ await expect(feedback).toBeVisible();await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);await expect(warning(page)).toHaveCount(0);
+ if(mode!=='malformed200'){await expect(feedback).not.toContainText(lang==='te'?payload.detail_en:payload.detail_te);await feedback.scrollIntoViewIfNeeded();await page.screenshot({path:`artifacts/profile-completion-refresh/structured-${lang}-${mode}.png`});}
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+for(const lang of ['en','te'])for(const mode of ['groom','malformed','network'])test(`save failure moves focus and viewport from bottom ${lang} ${mode}`,async({page})=>{
+ await page.setViewportSize({width:320,height:950});await overlap(page,lang);await release(page,'read1',valid);
+ const button=page.getByRole('button',{name:/^Save changes$|^మార్పులను సేవ్ చేయండి$/});await button.click();
+ const before=await page.locator('form button[type="submit"]').boundingBox();expect(before).not.toBeNull();expect(before!.y).toBeGreaterThan(0);expect(before!.y).toBeLessThan(950);
+ if(mode==='network')await page.evaluate(()=>(window as any).rejectSave());
+ else await release(page,'save',mode==='groom'?backendErrors.groom400:{success:false},mode==='groom'?400:200);
+ const feedback=page.getByRole('alert').filter({hasText:lang==='en'?/Your edits are kept/:/మీ వివరాలు ఇక్కడే ఉన్నాయి/});
+ await expect(feedback).toBeFocused();
+ const inSafeViewport=async()=>{const b=await feedback.boundingBox();return !!b&&b.y>=72&&b.y+b.height<=878};
+ await expect.poll(inSafeViewport).toBe(true);
+ // Deterministic late summary layout shift, with no test-side scrolling.
+ await feedback.evaluate(e=>{(e.previousElementSibling as HTMLElement).style.paddingBottom='1000px'});
+ await expect.poll(inSafeViewport).toBe(true);await expect(feedback).toBeFocused();
+ await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ await page.screenshot({path:`artifacts/profile-completion-refresh/focus-${lang}-${mode}.png`});
+ const field=page.locator('#me-full_name');await field.focus();
+ await feedback.evaluate(e=>{(e.previousElementSibling as HTMLElement).style.paddingBottom='1400px'});
+ await settled(page);await expect(field).toBeFocused();
 });

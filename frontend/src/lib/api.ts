@@ -33,20 +33,22 @@ export function apiDisplayMessage(payload: unknown, telugu: boolean, fallback = 
     ? payload as Record<string, unknown>
     : null;
   const candidates = telugu
-    ? [record?.message_telugu, record?.message_te, record?.detail_te, record?.detail, record?.error, record?.message, payload]
+    ? [record?.message_telugu, record?.message_te, record?.detail_te, record?.error_te, record?.detail, record?.error, record?.message, payload]
     : [record?.message_en, record?.error_en, record?.detail_en, record?.ack_en, record?.message, record?.detail, record?.error, record?.reason, payload];
-  for (const candidate of candidates) {
+  for (const [index, candidate] of candidates.entries()) {
     if (typeof candidate === "string" && candidate.trim()) {
       const text = candidate.trim();
-      if (telugu || !hasUntranslatedTelugu(text)) return text;
+      // Explicit Telugu fields may contain useful names such as QR or UTR.
+      // Unlabelled legacy text must be Telugu-only, not a mixed/English error.
+      if (telugu ? TELUGU_SCRIPT.test(text) && (index < 4 || !/[A-Za-z]/.test(text)) : !hasUntranslatedTelugu(text)) return text;
     }
     if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
       const localized = candidate as Record<string, unknown>;
       const nested = telugu
-        ? [localized.te, localized.message_telugu, localized.en]
+        ? [localized.te, localized.message_te, localized.message_telugu, localized.detail_te, localized.error_te]
         : [localized.en, localized.message_en, localized.message, localized.te];
-      const text = nested.map((value) => telugu ? (typeof value === "string" ? value.trim() : "") : cleanEnglishCandidate(value)).find(Boolean);
-      if (text && (telugu || !hasUntranslatedTelugu(text))) return text;
+      const text = nested.map((value) => telugu ? (typeof value === "string" && TELUGU_SCRIPT.test(value) ? value.trim() : "") : cleanEnglishCandidate(value)).find(Boolean);
+      if (text && (telugu ? TELUGU_SCRIPT.test(text) : !hasUntranslatedTelugu(text))) return text;
     }
   }
   if (fallback && (telugu || !hasUntranslatedTelugu(fallback))) return fallback;
@@ -282,12 +284,12 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
       const localizedError = lang === "en"
         ? (englishMessage || cleanEnglishCandidate(rawMessage) || englishFallback)
         : (rawMessage || (res.status === 401
-          ? "🔒 Mee account ki login cheyyandi"
+          ? "మీ ఖాతాలోకి మళ్లీ ప్రవేశించండి."
           : res.status === 403
-          ? "🔒 Ee data ki access ledu (admin key / owner matrame)"
+          ? "ఈ చర్యకు మీకు అనుమతి లేదు."
           : res.status === 429
-          ? "⏳ Chala fast ga try chestunnaru — konchem aagi malli try cheyyandi"
-          : "⚠️ Server problem — malli try cheyyandi"));
+          ? "వరుసగా ఎక్కువ అభ్యర్థనలు పంపారు. కొద్దిసేపు ఆగి మళ్లీ ప్రయత్నించండి."
+          : "సేవలో సమస్య ఏర్పడింది. మళ్లీ ప్రయత్నించండి."));
       const isJson = data !== null && typeof data === "object";
       if (res.ok) {
         return { ok: true, status: res.status, data, error: "", errorTelugu: rawMessage, needsLogin: false, needsAdminKey: false };
@@ -311,7 +313,7 @@ export async function apiFetch<T = unknown>(path: string, opts: Opts = {}): Prom
       const lang = selectedLanguage();
       const localizedError = lang === "en"
         ? (aborted ? "The request timed out. Please try again." : "A network connection could not be established. Check your connection and try again.")
-        : (aborted ? "⏱️ Server slow ga undi — malli try cheyyandi" : "📡 Internet/server connection ledu — check cheyyandi");
+        : (aborted ? "సమయం మించిపోయింది. మళ్లీ ప్రయత్నించండి." : "అనుసంధానం కాలేదు. మీ అంతర్జాల అనుసంధానం సరిచూసుకుని మళ్లీ ప్రయత్నించండి.");
       return {
         ok: false, status: 0, data: null,
         error: lang === "en" ? localizedError : aborted ? "timeout" : "network_error",
