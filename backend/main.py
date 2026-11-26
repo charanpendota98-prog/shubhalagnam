@@ -2591,9 +2591,25 @@ _CSRF_MEMBER_PREFIXES = (
     "/api/consent", "/api/verification", "/api/profile", "/api/user", "/api/photo",
     "/api/voice", "/api/astro", "/api/notifications", "/api/save", "/api/referral",
     "/api/spotlight/apply", "/api/auth/logout-everywhere",
+    "/api/verify/", "/api/welcome-pack/", "/api/streak/", "/api/push/",
+    "/api/boost/", "/api/contact/", "/api/pay/", "/api/auth/passkey/register/",
+    "/api/safety/appeal", "/api/family/", "/api/support/tickets", "/api/me/",
+    "/api/appointments/book", "/api/media/", "/api/bundles/enquire",
+    "/api/refunds/request", "/api/ambassadors/apply",
+)
+_CSRF_MEMBER_EXACT = {
+    "/api/view", "/api/report", "/api/block", "/api/unblock", "/api/unlock",
+    "/api/stories/submit",
+}
+# These two member-owned actions must not inherit the public vendor exemption.
+_CSRF_MEMBER_PATTERNS = (
+    re.compile(r"^/api/vendors/[^/]+/(?:quote|reviews)$"),
+    re.compile(r"^/api/events/[^/]+/rsvp$"),
 )
 _CSRF_PUBLIC_EXACT = {
     "/api/referral/partner/register",
+    "/api/pay/webhook",
+    "/api/family/accept-invite",
 }
 _CSRF_PUBLIC_PREFIXES = (
     "/api/referral/click/", "/api/spotlight/track/", "/api/vendors/", "/api/ads/",
@@ -2601,6 +2617,8 @@ _CSRF_PUBLIC_PREFIXES = (
 
 
 def _member_mutation_requires_csrf(path: str) -> bool:
+    if path in _CSRF_MEMBER_EXACT or any(pattern.fullmatch(path) for pattern in _CSRF_MEMBER_PATTERNS):
+        return True
     if path in _CSRF_PUBLIC_EXACT or path.startswith(_CSRF_PUBLIC_PREFIXES):
         return False
     return path.startswith(_CSRF_MEMBER_PREFIXES)
