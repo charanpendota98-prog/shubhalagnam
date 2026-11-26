@@ -5,6 +5,12 @@
     "detail_en": "Housewife / Homemaker does not apply to a Groom profile. Choose the work that describes this member.",
     "detail_te": "వరుడి ప్రొఫైల్‌కు గృహిణి ఎంపిక వర్తించదు. ఈ వ్యక్తికి సరైన ఉద్యోగం ఎంచుకోండి."
   },
+  "district400": {
+    "success": false,
+    "detail": "⚠️ district సరిగ్గా ఇవ్వండి (2-80 characters)",
+    "detail_en": "Choose a valid value for district.",
+    "detail_te": "జిల్లా: సరైన ఎంపికను ఎంచుకోండి."
+  },
   "persist503": {
     "success": false,
     "detail": "Profile changes could not be saved safely. Please try again.",

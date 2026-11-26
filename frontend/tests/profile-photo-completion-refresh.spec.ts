@@ -174,3 +174,15 @@ for(const lang of ['en','te'])for(const mode of ['groom400','persist503','privac
  if(mode!=='malformed200'){await expect(feedback).not.toContainText(lang==='te'?payload.detail_en:payload.detail_te);await feedback.scrollIntoViewIfNeeded();await page.screenshot({path:`artifacts/profile-completion-refresh/structured-${lang}-${mode}.png`});}
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
+
+for(const lang of ['en','te'])for(const mode of ['groom','malformed','network'])test(`save failure moves focus and viewport from bottom ${lang} ${mode}`,async({page})=>{
+ await page.setViewportSize({width:320,height:950});await overlap(page,lang);await release(page,'read1',valid);
+ const button=page.getByRole('button',{name:/^Save changes$|^మార్పులను సేవ్ చేయండి$/});await button.click();
+ const before=await page.locator('form button[type="submit"]').boundingBox();expect(before).not.toBeNull();expect(before!.y).toBeGreaterThan(0);expect(before!.y).toBeLessThan(950);
+ if(mode==='network')await page.evaluate(()=>(window as any).rejectSave());
+ else await release(page,'save',mode==='groom'?backendErrors.groom400:{success:false},mode==='groom'?400:200);
+ const feedback=page.getByRole('alert').filter({hasText:lang==='en'?/Your edits are kept/:/మీ వివరాలు ఇక్కడే ఉన్నాయి/});
+ await expect(feedback).toBeFocused();const bounds=await feedback.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.y).toBeGreaterThanOrEqual(65);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(885);
+ await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ await page.screenshot({path:`artifacts/profile-completion-refresh/focus-${lang}-${mode}.png`});
+});

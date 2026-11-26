@@ -1,0 +1,146 @@
+[
+  {
+    "input": {
+      "dob": "not-a-date"
+    },
+    "error": {
+      "success": false,
+      "detail": "Enter a valid date of birth in YYYY-MM-DD format",
+      "detail_en": "Enter a valid date of birth in YYYY-MM-DD format.",
+      "detail_te": "పుట్టిన తేదీని సంవత్సరం-నెల-రోజు రూపంలో సరిగ్గా నమోదు చేయండి."
+    }
+  },
+  {
+    "input": {
+      "dob": "2099-01-01"
+    },
+    "error": {
+      "success": false,
+      "detail": "🎂 Date of birth cannot be in the future",
+      "detail_en": "Date of birth cannot be in the future.",
+      "detail_te": "పుట్టిన తేదీ భవిష్యత్తులో ఉండకూడదు."
+    }
+  },
+  {
+    "input": {
+      "dob": "2020-01-01"
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ Minimum age is 21 for this profile",
+      "detail_en": "Minimum age is 21 for this profile.",
+      "detail_te": "ఈ ప్రొఫైల్‌కు కనీస వయస్సు 21 సంవత్సరాలు."
+    }
+  },
+  {
+    "input": {
+      "dob": "1800-01-01"
+    },
+    "error": {
+      "success": false,
+      "detail": "Enter a valid date of birth",
+      "detail_en": "Enter a valid date of birth.",
+      "detail_te": "సరైన పుట్టిన తేదీని నమోదు చేయండి."
+    }
+  },
+  {
+    "input": {
+      "state": "TS",
+      "district": "Visakhapatnam"
+    },
+    "error": {
+      "success": false,
+      "detail": "District does not match the selected state",
+      "detail_en": "District does not match the selected state.",
+      "detail_te": "మీరు ఎంచుకున్న జిల్లాకు రాష్ట్రం సరిపోలడం లేదు. రాష్ట్రం, జిల్లాను సరిచూడండి."
+    }
+  },
+  {
+    "input": {
+      "district": ""
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ district సరిగ్గా ఇవ్వండి (2-80 characters)",
+      "detail_en": "Choose a valid value for district.",
+      "detail_te": "జిల్లా: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "state": "BAD"
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ state కి 'BAD' valid కాదు — ఇవి మాత్రమే: TS, AP, Other",
+      "detail_en": "Choose a valid value for state.",
+      "detail_te": "రాష్ట్రం: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "children": "BAD"
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ children కి 'BAD' valid కాదు — ఇవి మాత్రమే: None, 1, 2, 3, 4+",
+      "detail_en": "Choose a valid value for number of children.",
+      "detail_te": "పిల్లల సంఖ్య: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "profile_for": "BAD"
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ profile_for కి 'BAD' valid కాదు — ఇవి మాత్రమే: Self, Parents",
+      "detail_en": "Choose a valid value for who this profile is for.",
+      "detail_te": "ప్రొఫైల్ ఎవరి కోసం: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "diet": "BAD"
+    },
+    "error": {
+      "success": false,
+      "detail": "⚠️ diet కి 'BAD' valid కాదు — ఇవి మాత్రమే: Vegetarian, Non-Vegetarian",
+      "detail_en": "Choose a valid value for diet.",
+      "detail_te": "ఆహారపు అలవాటు: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "photo_private": "BAD"
+    },
+    "error": {
+      "success": false,
+      "detail": "photo_private must be a boolean",
+      "detail_en": "Choose a valid value for photo privacy.",
+      "detail_te": "ఫోటో గోప్యత: సరైన ఎంపికను ఎంచుకోండి."
+    }
+  },
+  {
+    "input": {
+      "auth": false
+    },
+    "error": {
+      "success": false,
+      "detail": "🔒 మీ account కి login చెయ్యండి — ఫోన్ నంబర్ మరియు పాస్‌వర్డ్ (OTP ఉపయోగించబడదు). Token లేకపోతే ఈ data చూడలేరు.",
+      "detail_en": "Log in to your own account to edit this profile.",
+      "detail_te": "ఈ ప్రొఫైల్ మార్చడానికి మీ సొంత ఖాతాలోకి ప్రవేశించండి."
+    }
+  },
+  {
+    "input": {
+      "tsap_id": "ABSENT"
+    },
+    "error": {
+      "success": false,
+      "detail": "Profile ABSENT not found",
+      "detail_en": "Profile not found.",
+      "detail_te": "ప్రొఫైల్ కనిపించలేదు."
+    }
+  }
+]

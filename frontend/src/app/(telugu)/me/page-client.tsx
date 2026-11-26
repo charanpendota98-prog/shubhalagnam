@@ -1362,6 +1362,13 @@ function EditProfilePanel({ myId }: { myId: string }) {
   const [refreshingCompletion, setRefreshingCompletion] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (msg && !msg.ok) {
+      feedbackRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+      feedbackRef.current?.focus({ preventScroll: true });
+    }
+  }, [msg]);
   const selectedCaste = String(profile.caste || "");
   const isListedCaste = CASTES.some((caste) =>
     caste !== OTHER_COMMUNITY_OPTION && caste.toLocaleLowerCase("en") === selectedCaste.toLocaleLowerCase("en")
@@ -1626,7 +1633,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
         </div>
       </div>
 
-      {msg && <div role={msg.ok ? "status" : "alert"} aria-live={msg.ok ? "polite" : "assertive"}><Msg m={msg} /></div>}
+      {msg && <div ref={feedbackRef} tabIndex={-1} role={msg.ok ? "status" : "alert"} aria-live={msg.ok ? "polite" : "assertive"}><Msg m={msg} /></div>}
 
       {/* Edit Form */}
       <form onSubmit={handleSave} className="bg-white rounded-3xl p-5 sm:p-7 border border-gold/30 shadow-md space-y-6">
