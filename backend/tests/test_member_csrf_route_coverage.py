@@ -28,14 +28,17 @@ def block_provider_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", forbidden)
 
 
-def owner_routes():
+def mutation_inventory(sources=None):
     """Follow local helpers too, so splitting a handler cannot bypass the guard."""
     routes = set()
-    for path in [BACKEND / "main.py", *sorted((BACKEND / "routers").glob("*.py"))]:
-        tree = ast.parse(path.read_text())
+    all_routes = set()
+    if sources is None:
+        sources = [p.read_text() for p in [BACKEND / "main.py", *sorted((BACKEND / "routers").glob("*.py"))]]
+    for source in sources:
+        tree = ast.parse(source)
         functions = {n.name: n for n in ast.walk(tree)
                      if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
-        calls = {name: {getattr(n.func, "id", "") for n in ast.walk(node)
+        calls = {name: {getattr(n.func, "id", getattr(n.func, "attr", "")) for n in ast.walk(node)
                         if isinstance(n, ast.Call)} for name, node in functions.items()}
         guarded = {name for name, values in calls.items() if "require_owner" in values}
         while True:
@@ -43,16 +46,19 @@ def owner_routes():
             if expanded == guarded:
                 break
             guarded = expanded
-        for name in guarded:
-            for dec in functions[name].decorator_list:
+        for name, function in functions.items():
+            for dec in function.decorator_list:
                 if (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)
                         and dec.func.attr in {"post", "put", "patch", "delete"}
                         and dec.args and isinstance(dec.args[0], ast.Constant)):
-                    routes.add((dec.func.attr.upper(), dec.args[0].value))
-    return sorted(routes)
+                    row = (dec.func.attr.upper(), dec.args[0].value)
+                    all_routes.add(row)
+                    if name in guarded:
+                        routes.add(row)
+    return sorted(routes), all_routes
 
 
-OWNER_ROUTES = owner_routes()
+OWNER_ROUTES, ALL_DECLARED_MUTATIONS = mutation_inventory()
 
 
 def route_path(template):
@@ -115,7 +121,7 @@ def test_valid_cookie_and_explicit_header_auth_reach_payment_action(monkeypatch,
     M._USERS_ID_MAP.clear()
 
 
-@pytest.mark.parametrize("path", ["/api/pay/webhook", "/api/payment/webhook", "/api/register",
+@pytest.mark.parametrize("path", ["/api/pay/webhook", "/api/payment/webhook", "/api/family/accept-invite", "/api/register",
     "/api/auth/login-password", "/api/auth/passkey/login/begin", "/api/auth/passkey/login/finish",
     "/api/referral/partner/register", "/api/referral/click/fixture", "/api/spotlight/track/fixture",
     "/api/vendors/register", "/api/vendors/fixture/lead", "/api/vendors/fixture/click",
@@ -128,4 +134,39 @@ def test_webhook_with_member_cookie_still_requires_provider_signature(monkeypatc
     monkeypatch.setattr(P, "verify_webhook_signature", lambda *args: False)
     response = client().post("/api/pay/webhook", json={})
     assert response.status_code == 401
+    assert "csrf_required" not in response.text
+
+
+def uncovered_runtime_mutations(app, declared):
+    return {(method, route.path) for route in app.routes
+            for method in (getattr(route, "methods", set()) or set())
+            if method in {"POST", "PUT", "PATCH", "DELETE"}
+            and M._member_mutation_requires_csrf(route_path(route.path))
+            and (method, route.path) not in declared}
+
+
+def test_runtime_member_mutations_cannot_escape_inventory():
+    assert not uncovered_runtime_mutations(M.app, ALL_DECLARED_MUTATIONS)
+
+
+def test_attribute_owner_guard_mutant_is_discovered():
+    source = "@app.post('/api/fixture')\ndef handler():\n    hardening.require_owner(request, identity)\n"
+    owners, declared = mutation_inventory([source])
+    assert ("POST", "/api/fixture") in owners
+    assert ("POST", "/api/fixture") in declared
+
+
+def test_runtime_add_api_route_mutant_is_caught():
+    from fastapi import FastAPI
+    app = FastAPI()
+    app.add_api_route("/api/pay/fixture", lambda: {}, methods=["POST"])
+    assert uncovered_runtime_mutations(app, set()) == {("POST", "/api/pay/fixture")}
+
+
+def test_family_invite_acceptance_keeps_prior_public_behavior_with_cookie(monkeypatch):
+    calls = []
+    monkeypatch.setattr(M.ECOSYSTEM3, "accept_family_invite", lambda code: calls.append(code) or (False, "Invalid fixture invite", {}))
+    response = client().post("/api/family/accept-invite", json={"invite_code": "FICTIONAL-INVITE"})
+    assert response.status_code == 400
+    assert calls == ["FICTIONAL-INVITE"]
     assert "csrf_required" not in response.text

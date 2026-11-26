@@ -2609,6 +2609,7 @@ _CSRF_MEMBER_PATTERNS = (
 _CSRF_PUBLIC_EXACT = {
     "/api/referral/partner/register",
     "/api/pay/webhook",
+    "/api/family/accept-invite",
 }
 _CSRF_PUBLIC_PREFIXES = (
     "/api/referral/click/", "/api/spotlight/track/", "/api/vendors/", "/api/ads/",
