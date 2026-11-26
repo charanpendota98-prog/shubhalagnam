@@ -451,7 +451,7 @@ export default function ProfileView() {
 <body>
   <div class="card">
     <div class="header">
-      <div class="title">💍 ${brand} — ${e(copy.title)}</div>
+      <div class="title">${brand} — ${e(copy.title)}</div>
       <div class="sub">${e(copy.subtitle)} · ID: ${tsapId}</div>
     </div>
     <div class="grid">

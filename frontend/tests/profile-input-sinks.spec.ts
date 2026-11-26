@@ -42,6 +42,7 @@ for(const lang of ['en','te'])test(`legacy profile markup stays inert in view an
   const doc=new DOMParser().parseFromString(html,'text/html');
   return {images:doc.querySelectorAll('img').length,scripts:Array.from(doc.scripts).map(s=>s.textContent),handlers:doc.querySelectorAll('[onerror],[onload],[onclick]').length};
  },html);
+ expect(html).not.toContain('💍');
  expect(parsed.images).toBe(0);expect(parsed.handlers).toBe(0);
  expect(parsed.scripts).toEqual(['window.onload = function() { window.print(); };']);
  const printPage=await page.context().newPage();
