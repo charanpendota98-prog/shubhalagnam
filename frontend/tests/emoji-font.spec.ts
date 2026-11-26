@@ -33,24 +33,26 @@ test('failed emoji download keeps form text and controls usable',async({page})=>
  await expect(name).toHaveValue('Fictional Failure');
  await expect(page.getByRole('button',{name:/Create my Partner ID/})).toBeVisible();
  const fontStack=await page.getByRole('heading',{level:1}).evaluate(e=>getComputedStyle(e).fontFamily);
- expect(fontStack.indexOf('Noto Color Emoji')).toBeLessThan(fontStack.indexOf('Manavivaha Emoji'));
+ expect(fontStack.indexOf('Manavivaha Native Noto')).toBeLessThan(fontStack.indexOf('Manavivaha Emoji'));
  expect(fontStack).toContain('sans-serif');
  // Font failure may leave decorative tofu on an emoji-less device, never invisible labels.
  await expect(page.getByText('Anyone with a phone',{exact:true})).toBeVisible();
 });
 
 
-test('available native-name emoji face wins without fallback download',async({page})=>{
- // Controlled native-face stand-in: proves stack precedence, not an OS-font claim.
- const bytes=fs.readFileSync('public/icons/fonts/manavivaha-emoji-v1.woff2').toString('base64');
- await page.addInitScript(async data=>{
-  const raw=Uint8Array.from(atob(data),c=>c.charCodeAt(0));
-  const face=new FontFace('Noto Color Emoji',raw);await face.load();document.fonts.add(face);
- },bytes);
- const requested:string[]=[];page.on('request',r=>{if(r.url().includes('/icons/fonts/'))requested.push(r.url())});
+
+test('native emoji alias paints without downloading fallback when installed',async({page})=>{
  await page.route('**/api/**',r=>r.fulfill({json:{success:true,items:[]}}));
- await page.goto('/en/referral/register');await page.evaluate(()=>document.fonts.ready);
- await expect(page.getByRole('heading',{level:1})).toContainText('Creator Club');
- expect(await page.evaluate(()=>[...document.fonts].find(f=>f.family==='Manavivaha Emoji')?.status)).toBe('unloaded');
+ await page.goto('/en/referral/register');
+ const available=await page.evaluate(async()=>{try{await new FontFace('Native Probe','local("Noto Color Emoji")').load();return true}catch{return false}});
+ test.skip(!available,'This environment has no native Noto emoji face; separate no-font cases cover download.');
+ const requested:string[]=[];page.on('request',r=>{if(r.url().includes('/icons/fonts/'))requested.push(r.url())});
+ await page.evaluate(()=>{const e=document.createElement('span');e.id='native-probe';e.style.fontFamily='"Manavivaha Native Noto","Manavivaha Emoji",sans-serif';e.textContent='🤝';document.body.append(e)});
+ await page.evaluate(()=>document.fonts.load('24px "Manavivaha Native Noto"','🤝'));
+ await page.locator('#native-probe').scrollIntoViewIfNeeded();await page.locator('#native-probe').screenshot({path:'artifacts/emoji-font/native-probe.png'});
+ const cdp=await page.context().newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');
+ const doc=await cdp.send('DOM.getDocument');const node=await cdp.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#native-probe'});
+ const fonts=await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId});
+ expect(fonts.fonts.some(f=>f.familyName==='Noto Color Emoji')).toBe(true);
  expect(requested).toHaveLength(0);
 });

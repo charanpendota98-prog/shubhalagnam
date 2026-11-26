@@ -16,3 +16,16 @@ test('emoji subset bytes, license and text ranges remain bounded',()=>{
  for(const cp of manifest.codepoints)assert.ok(css.includes('U+'+cp.toString(16).toUpperCase()));
  assert.ok(!css.includes('https:'));
 });
+test('native emoji local aliases cannot claim Latin digits spaces or Telugu',()=>{
+ const css=fs.readFileSync('src/app/emoji-font.css','utf8');
+ for(const name of ['Apple','Segoe','Noto']){
+  const rule=css.split(`font-family: 'Manavivaha Native ${name}';`)[1]?.split('}')[0];
+  assert.ok(rule);assert.match(rule,/src: local\('/);assert.match(rule,/unicode-range:/);
+  const ranges=rule.split('unicode-range: ')[1].split(';')[0].split(',').map(x=>parseInt(x.slice(2),16));
+  assert.deepEqual(ranges,manifest.codepoints);
+ }
+ for(const file of ['src/app/globals.css','tailwind.config.mjs']){
+  const stacks=fs.readFileSync(file,'utf8');
+  assert.doesNotMatch(stacks,/Apple Color Emoji|Segoe UI Emoji|Noto Color Emoji/);
+ }
+});
