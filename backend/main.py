@@ -3747,7 +3747,7 @@ async def register(
                    ("father_name", 60), ("mother_name", 60), ("father_occupation", 60), ("mother_occupation", 60),
                    ("native_place", 60), ("college", 80), ("company", 80), ("education_detail", 120),
                    ("work_location", 60), ("current_city", 40), ("pincode", 6), ("blood_group", 8),
-                   ("weight", 12), ("experience", 12), ("exp_job", 60), ("exp_location", 60), ("exp_caste", 40),
+                   ("weight", 20), ("experience", 12), ("exp_job", 60), ("exp_location", 60), ("exp_caste", 40),
                    ("mandal", 40), ("gothram", 40), ("sub_caste", 40), ("star", 30), ("rasi", 30)):
         if _k in user:
             user[_k] = clean(user.get(_k), _n, "register:" + _k)
@@ -4503,6 +4503,7 @@ def _profile_update_error(detail: Any, status: int) -> dict:
                 ("profile_for", "who this profile is for", "ప్రొఫైల్ ఎవరి కోసం"),
                 ("diet", "diet", "ఆహారపు అలవాటు"),
                 ("photo_private", "photo privacy", "ఫోటో గోప్యత"),
+                ("is_nri", "overseas status", "విదేశీ నివాస స్థితి"),
             ]:
                 if detail.startswith((f"⚠️ {field} ", f"{field} must be a boolean")):
                     en, te = f"Choose a valid value for {label_en}.", f"{label_te}: సరైన ఎంపికను ఎంచుకోండి."
@@ -4562,6 +4563,9 @@ def _update_user_profile(payload: dict, request: Request):
     photo_private_value = None
     if "photo_private" in payload and payload["photo_private"] is not None:
         photo_private_value = req_bool_strict(payload["photo_private"], "photo_private")
+    is_nri_value = None
+    if "is_nri" in payload and payload["is_nri"] is not None:
+        is_nri_value = req_bool_strict(payload["is_nri"], "is_nri")
     children_update = None
     if "children" in payload and payload["children"] is not None:
         children_update = req_choice(payload["children"], "children", ["None", "1", "2", "3", "4+"], required=False, default="")
@@ -4572,7 +4576,7 @@ def _update_user_profile(payload: dict, request: Request):
     if "diet" in payload and payload["diet"] is not None:
         diet_update = req_choice(payload["diet"], "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
     for k in updatable_fields:
-        if k in payload and payload[k] is not None and k != "photo_private":
+        if k in payload and payload[k] is not None and k not in {"photo_private", "is_nri"}:
             user[k] = payload[k]
     _marital_after = payload.get("marital_status") if payload.get("marital_status") is not None else user.get("marital_status")
     if is_never_married_status(_marital_after):
@@ -4585,6 +4589,9 @@ def _update_user_profile(payload: dict, request: Request):
     if photo_private_value is not None:
         user["photo_private"] = photo_private_value
         user["privacy_mode"] = "private" if photo_private_value else "public"
+
+    if is_nri_value is not None:
+        user["is_nri"] = is_nri_value
 
     # 🏡 A Groom can never be *set* to the "Housewife / గృహిణి" occupation,
     # whichever client sends the update. Existing stored values are left alone so
@@ -4604,6 +4611,8 @@ def _update_user_profile(payload: dict, request: Request):
     # the same way registration does, for every free-text field this
     # endpoint allows updating.
     _free_text_max = {
+        "birth_time": 30, "weight": 20, "brothers": 20, "sisters": 20,
+        "exp_age_min": 3, "exp_age_max": 3,
         "full_name": 60, "height": 12, "marital_status": 30, "caste": 40, "sub_caste": 40,
         "gothram": 40, "star": 30, "rasi": 30, "dosham": 30, "education": 60, "education_detail": 120,
         "job": 60, "company": 80, "salary": 24, "work_type": 40, "work_location": 60,
