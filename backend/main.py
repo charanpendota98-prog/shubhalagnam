@@ -4471,8 +4471,56 @@ def _validated_profile_location(state_value: Any, district_value: Any):
     return state, district
 
 
+def _profile_update_error(detail: Any, status: int) -> dict:
+    """Add display-only locale fields without echoing submitted values or changing rules."""
+    en, te = "Profile changes could not be saved. Please try again.", "ప్రొఫైల్ మార్పులను సేవ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+    known = {
+        "Enter a valid date of birth in YYYY-MM-DD format": ("Enter a valid date of birth in YYYY-MM-DD format.", "పుట్టిన తేదీని సంవత్సరం-నెల-రోజు రూపంలో సరిగ్గా నమోదు చేయండి."),
+        "🎂 Date of birth cannot be in the future": ("Date of birth cannot be in the future.", "పుట్టిన తేదీ భవిష్యత్తులో ఉండకూడదు."),
+        "Enter a valid date of birth": ("Enter a valid date of birth.", "సరైన పుట్టిన తేదీని నమోదు చేయండి."),
+        "District does not match the selected state": ("District does not match the selected state.", "మీరు ఎంచుకున్న జిల్లాకు రాష్ట్రం సరిపోలడం లేదు. రాష్ట్రం, జిల్లాను సరిచూడండి."),
+        "Privacy change could not be applied safely. Please try again.": ("Privacy change could not be applied safely. Please try again.", "ఫోటో గోప్యత మార్పును అమలు చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."),
+        "Profile changes could not be saved safely. Please try again.": ("Profile changes could not be saved safely. Please try again.", "ప్రొఫైల్ మార్పులను భద్రపరచలేకపోయాం. మళ్లీ ప్రయత్నించండి."),
+    }
+    if status == 401:
+        en, te = "Log in to your own account to edit this profile.", "ఈ ప్రొఫైల్ మార్చడానికి మీ సొంత ఖాతాలోకి ప్రవేశించండి."
+    elif status == 404:
+        en, te = "Profile not found.", "ప్రొఫైల్ కనిపించలేదు."
+    elif isinstance(detail, str):
+        if detail == _GROOM_HOMEMAKER_DETAIL:
+            en, te = "Housewife / Homemaker does not apply to a Groom profile. Choose the work that describes this member.", "వరుడి ప్రొఫైల్‌కు గృహిణి ఎంపిక వర్తించదు. ఈ వ్యక్తికి సరైన ఉద్యోగం ఎంచుకోండి."
+        elif detail in known:
+            en, te = known[detail]
+        elif detail in ("⚠️ Minimum age is 18 for this profile", "⚠️ Minimum age is 21 for this profile"):
+            age = 21 if "21" in detail else 18
+            en, te = f"Minimum age is {age} for this profile.", f"ఈ ప్రొఫైల్‌కు కనీస వయస్సు {age} సంవత్సరాలు."
+        else:
+            # Validators prefix these messages with a server-owned field name.
+            # Never translate/reflect the submitted choice embedded in the rest.
+            for field, label_en, label_te in [
+                ("state", "state", "రాష్ట్రం"), ("district", "district", "జిల్లా"),
+                ("children", "number of children", "పిల్లల సంఖ్య"),
+                ("profile_for", "who this profile is for", "ప్రొఫైల్ ఎవరి కోసం"),
+                ("diet", "diet", "ఆహారపు అలవాటు"),
+                ("photo_private", "photo privacy", "ఫోటో గోప్యత"),
+            ]:
+                if detail.startswith((f"⚠️ {field} ", f"{field} must be a boolean")):
+                    en, te = f"Choose a valid value for {label_en}.", f"{label_te}: సరైన ఎంపికను ఎంచుకోండి."
+                    break
+    return {"success": False, "detail": detail, "detail_en": en, "detail_te": te}
+
+
 @app.post("/api/profile/update")
 def update_user_profile(payload: dict, request: Request):
+    try:
+        return _update_user_profile(payload, request)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code,
+                            content=_profile_update_error(exc.detail, exc.status_code),
+                            headers=exc.headers)
+
+
+def _update_user_profile(payload: dict, request: Request):
     """Allows user to update profile anytime, increasing completeness to 100%."""
     tsap_id = str(payload.get("tsap_id") or payload.get("id") or "").strip().upper()
     user = _find_user(tsap_id)
@@ -4809,19 +4857,21 @@ def _is_homemaker_occupation(value: object) -> bool:
     return any(term in text for term in _HOMEMAKER_TERMS)
 
 
+_GROOM_HOMEMAKER_DETAIL = (
+    "\u26a0\ufe0f Housewife / Homemaker (\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f) does not apply to a Groom profile — "
+            "\u0c35\u0c30\u0c41\u0c21\u0c3f \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u0c15\u0c41 \u2018\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f / Housewife\u2019 "
+            "\u0c0e\u0c02\u0c2a\u0c3f\u0c15 \u0c35\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c26\u0c41. "
+            "Choose the work that describes this member — "
+            "\u0c0e \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c15\u0c3f \u0c38\u0c30\u0c2f\u0c47 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f."
+)
+
+
 def _reject_groom_homemaker(gender: object, job: object = "", work_type: object = "") -> None:
     """Block the one occupation that can only ever belong to a bride."""
     if str(gender or "").strip().lower() != "groom":
         return
     if _is_homemaker_occupation(job) or _is_homemaker_occupation(work_type):
-        raise HTTPException(
-            400,
-            "\u26a0\ufe0f Housewife / Homemaker (\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f) does not apply to a Groom profile — "
-            "\u0c35\u0c30\u0c41\u0c21\u0c3f \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u0c15\u0c41 \u2018\u0c17\u0c43\u0c39\u0c3f\u0c23\u0c3f / Housewife\u2019 "
-            "\u0c0e\u0c02\u0c2a\u0c3f\u0c15 \u0c35\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c26\u0c41. "
-            "Choose the work that describes this member — "
-            "\u0c0e \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c15\u0c3f \u0c38\u0c30\u0c2f\u0c47 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f.",
-        )
+        raise HTTPException(400, _GROOM_HOMEMAKER_DETAIL)
 
 
 @app.get("/api/matches/{tsap_id}")
