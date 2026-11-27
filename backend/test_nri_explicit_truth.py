@@ -52,6 +52,14 @@ class NriTruth(unittest.TestCase):
     self.assertFalse(main._is_nri(fields))
     self.assertFalse(quality.matches_filters(fields,{'nri_only':True}))
     self.assertIn('nri_global',channels_config.route_profile(fields,max_posts=100)['keys'])
+ def test_channel_reason_provenance_and_priority(self):
+  cases=[({'state':'TS','country':'India','wants_nri':True},'member_selected_nri_category'),({'state':'TS','country':'India','is_nri':True},'member_reported_nri_flag'),({'state':'TS','country':'USA','is_nri':'Y'},'member_reported_nri_flag'),({'state':'TS','country':'USA','is_nri':'no'},'member_provided_overseas_location'),({'state':'AP','work_location':'London'},'member_provided_overseas_location'),({'state':'TS','country':'USA','is_nri':True,'wants_nri':True},'member_selected_nri_category'),({'state':'Karnataka','country':'USA','is_nri':True,'wants_nri':True},'other_region')]
+  for fields,expected in cases:
+   with self.subTest(fields=fields),patch.object(channels_config,'is_public_channel',return_value=True),patch.object(channels_config,'channel_chat_id',return_value='@fictional_test'):
+    result=channels_config.route_profile(fields,max_posts=100)
+    reasons=[row for row in result['reasons'] if row['key']=='nri_global']
+    self.assertEqual(len(reasons),1)
+    self.assertEqual(reasons[0]['why'],expected)
  def test_float_boundary_and_unicode(self):
   self.assertFalse(hardening.is_explicit_true(1.0))
   with self.assertRaises(Exception):hardening.req_bool_strict(1.0,'is_nri')
