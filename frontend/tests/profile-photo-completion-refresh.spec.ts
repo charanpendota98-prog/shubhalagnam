@@ -199,3 +199,21 @@ for(const lang of ['en','te'])for(const mode of ['groom','malformed','network'])
  await settled(page);await settled(page);await expect(field).toBeFocused();
  expect(Math.abs(await page.evaluate(()=>window.scrollY)-scrollBefore),'A late alert resize must not take the viewport back after focus leaves').toBeLessThanOrEqual(1);
 });
+
+for(const lang of ['en','te'])test(`save failure works without ResizeObserver ${lang}`,async({page})=>{
+ await page.setViewportSize({width:320,height:950});
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{Object.defineProperty(window,'ResizeObserver',{value:undefined,configurable:true})});
+ await overlap(page,lang);await release(page,'read1',valid);await save(page);
+ await release(page,'save',backendErrors.groom400,400);
+ const feedback=page.getByRole('alert').filter({hasText:lang==='en'?/Your edits are kept/:/మీ వివరాలు ఇక్కడే ఉన్నాయి/});
+ await expect(feedback).toBeFocused();
+ await expect.poll(async()=>{const b=await feedback.boundingBox();return !!b&&b.y>=72&&b.y+b.height<=878},{message:'Failed-save alert remains reachable without optional ResizeObserver'}).toBe(true);
+ await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
+ expect(await page.evaluate(()=>(window as any).saveWrites)).toBe(1);
+ expect(errors).toEqual([]);
+ await page.screenshot({path:`artifacts/profile-completion-refresh/no-resize-observer-${lang}.png`});
+ // Unmount exercises the nullable observer cleanup too.
+ await page.locator('button').filter({hasText:lang==='en'?'Family Hub':'కుటుంబ సహకారం'}).first().click();
+ await settled(page);expect(errors).toEqual([]);
+});

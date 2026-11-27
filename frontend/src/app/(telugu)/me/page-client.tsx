@@ -1381,12 +1381,12 @@ function EditProfilePanel({ myId }: { myId: string }) {
     feedback.focus({ preventScroll: true });
     // Fonts/summary content can finish laying out after the failed save.
     // Correct that shift only while this alert still owns keyboard focus.
-    const observer = new ResizeObserver(keepVisible);
-    if (feedback.previousElementSibling) observer.observe(feedback.previousElementSibling, { box: "border-box" });
-    observer.observe(feedback, { box: "border-box" });
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(keepVisible) : null;
+    if (feedback.previousElementSibling) observer?.observe(feedback.previousElementSibling, { box: "border-box" });
+    observer?.observe(feedback, { box: "border-box" });
     void document.fonts.ready.then(() => { if (active) keepVisible(); });
     keepVisible();
-    return () => { active = false; cancelAnimationFrame(frame); observer.disconnect(); };
+    return () => { active = false; cancelAnimationFrame(frame); observer?.disconnect(); };
   }, [msg]);
   const selectedCaste = String(profile.caste || "");
   const isListedCaste = CASTES.some((caste) =>
