@@ -191,6 +191,11 @@ for(const lang of ['en','te'])for(const mode of ['groom','malformed','network'])
  await expect(page.locator('#me-full_name')).toHaveValue('Unsaved Fictional Name');
  await page.screenshot({path:`artifacts/profile-completion-refresh/focus-${lang}-${mode}.png`});
  const field=page.locator('#me-full_name');await field.focus();
+ // Disable native scroll anchoring so only the alert effect can move this viewport.
+ await page.addStyleTag({content:'html,body,*{overflow-anchor:none!important;scroll-behavior:auto!important}'});
+ const scrollBefore=await page.evaluate(()=>window.scrollY);
  await feedback.evaluate(e=>{(e.previousElementSibling as HTMLElement).style.paddingBottom='1400px'});
- await settled(page);await expect(field).toBeFocused();
+ // ResizeObserver delivers before paint; drain its scheduled frame as well.
+ await settled(page);await settled(page);await expect(field).toBeFocused();
+ expect(Math.abs(await page.evaluate(()=>window.scrollY)-scrollBefore),'A late alert resize must not take the viewport back after focus leaves').toBeLessThanOrEqual(1);
 });
