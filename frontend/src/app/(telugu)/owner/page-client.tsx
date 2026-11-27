@@ -118,7 +118,7 @@ export default function OwnerPage() {
       a.download = "mana-vivaha-backup.zip";
       a.click();
       setBmsg(te ? "బ్యాకప్ డౌన్‌లోడ్ ప్రారంభించాం. ఫైల్ సేవ్ అయిందో చూసి, భద్రంగా ఉంచండి." : "Backup download started. Check that the file was saved and keep it safe.");
-    } catch { setBmsg(te ? "నెట్‌వర్క్ సమస్యతో బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "A network problem prevented the backup download. Retry."); }
+    } catch { setBmsg(te ? "నెట్‌వర్క్ సమస్య వల్ల బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "A network problem prevented the backup download. Retry."); }
     setBbusy(false);
   }, [authRequestHeaders, te]);
 

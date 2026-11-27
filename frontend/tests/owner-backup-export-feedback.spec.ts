@@ -21,10 +21,10 @@ for(const lang of ['en','te'])for(const mode of ['http','network','success'])tes
  await page.goto(localeHref('/owner',lang));
  const button=page.getByRole('button',{name:lang==='en'?'⬇️ Download backup':'⬇️ బ్యాకప్ download',exact:true});
  await expect(button).toBeVisible();
- const downloadPromise=mode==='success'?page.waitForEvent('download'):null;
+ const downloadPromise=mode==='success'?page.waitForEvent('download',{timeout:15000}):null;
  await button.click();
  const expected=mode==='http'?(lang==='te'?'బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి.':'Backup could not be downloaded. Retry.')
-  :mode==='network'?(lang==='te'?'నెట్‌వర్క్ సమస్యతో బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి.':'A network problem prevented the backup download. Retry.')
+  :mode==='network'?(lang==='te'?'నెట్‌వర్క్ సమస్య వల్ల బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి.':'A network problem prevented the backup download. Retry.')
   :(lang==='te'?'బ్యాకప్ డౌన్‌లోడ్ ప్రారంభించాం. ఫైల్ సేవ్ అయిందో చూసి, భద్రంగా ఉంచండి.':'Backup download started. Check that the file was saved and keep it safe.');
  const status=page.getByText(expected,{exact:true});await expect(status).toHaveText(expected);
  await expect(button).toBeEnabled();expect(paths.filter(p=>p==='/api/admin/backup/export')).toHaveLength(1);
