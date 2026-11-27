@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from PIL import Image
 
 import identity_repo as IDENTITY_REPO
-from hardening import is_explicit_true
+from matchpro import profile_is_nri
 
 _LOCK = threading.RLock()
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -640,7 +640,7 @@ def rebuild_search_projection(
                 str(u.get("salary") or ""),
                 int(lo_sal or 0),
                 int(hi_sal or 0),
-                1 if is_explicit_true(u.get("is_nri")) else 0,
+                1 if profile_is_nri(u) else 0,
                 has_pub_photo,
                 badge_str,
                 created_at,

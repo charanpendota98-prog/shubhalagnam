@@ -109,7 +109,7 @@ from hardening import (
     apply_security_headers, posture as security_posture, abuse_snapshot, abuse_log,
     sign_token, verify_token, token_from_request, is_admin, is_automation, clean, req_text,
     require_vendor, vendor_token, admin_role, revoke_all_tokens, token_version,
-    req_phone, req_int, req_choice, req_bool, req_bool_strict, is_explicit_true, validation_error, seen as idem_seen, abuse_count, clamp_int,
+    req_phone, req_int, req_choice, req_bool, req_bool_strict, validation_error, seen as idem_seen, abuse_count, clamp_int,
     ADMIN_KEY as TSAP_ADMIN_KEY, NAME_RE, PHONE_RE, dev_mode,
     TOKEN_VERSIONS_PATH, TOKEN_TTL_SECONDS, MEMBER_COOKIE_SESSIONS, MEMBER_SESSION_COOKIE,
     MEMBER_CSRF_COOKIE, member_cookie_is_used, member_csrf_valid,
@@ -347,11 +347,7 @@ def _is_public_referral_profile(profile: Optional[Dict]) -> bool:
 
 def _is_nri(u: Dict) -> bool:  # 🌊 WAVE 14 adapter: stored flag + detect_nri fallback
     try:
-        u = u or {}
-        if is_explicit_true(u.get("is_nri")):
-            return True
-        return bool(MP.detect_nri(str(u.get("country", "")), str(u.get("work_location", "")),
-                                   str(u.get("current_city", "")), str(u.get("state", ""))).get("is_nri"))
+        return MP.profile_is_nri(u)
     except Exception:
         return False
 
