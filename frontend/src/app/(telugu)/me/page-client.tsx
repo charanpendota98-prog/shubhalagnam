@@ -1663,7 +1663,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("పూర్తి పేరు", "Full name")}:</label>
+              <label htmlFor="me-full_name" className="font-bold text-slate-800 block mb-1">{T("పూర్తి పేరు", "Full name")}:</label>
               <input id={`me-full_name`}
                 type="text"
                 value={profile.full_name || ""}
@@ -1672,7 +1672,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("పుట్టిన తేదీ", "Date of birth")}:</label>
+              <label htmlFor="me-dob" className="font-bold text-slate-800 block mb-1">{T("పుట్టిన తేదీ", "Date of birth")}:</label>
               <input id={`me-dob`}
                 type="date"
                 value={profile.dob ? String(profile.dob).slice(0, 10) : ""}
@@ -1681,7 +1681,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("ఎత్తు", "Height")}:</label>
+              <label htmlFor="me-height" className="font-bold text-slate-800 block mb-1">{T("ఎత్తు", "Height")}:</label>
               <select id={`me-height`}
                 value={profile.height || ""}
                 onChange={(e) => setField("height", e.target.value)}
@@ -1696,7 +1696,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{te ? "వైవాహిక స్థితి" : "Marital status"}:</label>
+              <label htmlFor="me-marital_status" className="font-bold text-slate-800 block mb-1">{te ? "వైవాహిక స్థితి" : "Marital status"}:</label>
               <select id={`me-marital_status`}
                 value={profile.marital_status || ""}
                 onChange={(e) => setField("marital_status", e.target.value)}
@@ -1757,7 +1757,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               )}
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("ఉపకులం", "Sub-community")}:</label>
+              <label htmlFor="me-sub_caste" className="font-bold text-slate-800 block mb-1">{T("ఉపకులం", "Sub-community")}:</label>
               <input id={`me-sub_caste`}
                 type="text"
                 value={profile.sub_caste || ""}
@@ -1767,7 +1767,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("గోత్రం", "Gothram")}:</label>
+              <label htmlFor="me-gothram" className="font-bold text-slate-800 block mb-1">{T("గోత్రం", "Gothram")}:</label>
               <input id={`me-gothram`}
                 type="text"
                 value={profile.gothram || ""}
@@ -1777,7 +1777,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("నక్షత్రం", "Nakshatram")}:</label>
+              <label htmlFor="me-star" className="font-bold text-slate-800 block mb-1">{T("నక్షత్రం", "Nakshatram")}:</label>
               <select id={`me-star`}
                 value={profile.star || ""}
                 onChange={(e) => setField("star", e.target.value)}
@@ -1792,7 +1792,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("రాశి", "Rasi")}:</label>
+              <label htmlFor="me-rasi" className="font-bold text-slate-800 block mb-1">{T("రాశి", "Rasi")}:</label>
               <select id={`me-rasi`}
                 value={profile.rasi || ""}
                 onChange={(e) => setField("rasi", e.target.value)}
@@ -1807,7 +1807,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)", "Manglik / dosham (member-entered reference)")}:</label>
+              <label htmlFor="me-dosham" className="font-bold text-slate-800 block mb-1">{T("కుజ దోషం (సభ్యుడు నమోదు చేసిన reference)", "Manglik / dosham (member-entered reference)")}:</label>
               <select id={`me-dosham`}
                 value={profile.dosham || ""}
                 onChange={(e) => setField("dosham", e.target.value)}
@@ -1829,7 +1829,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("విద్యార్హత", "Education")}:</label>
+              <label htmlFor="me-education" className="font-bold text-slate-800 block mb-1">{T("విద్యార్హత", "Education")}:</label>
               <select id={`me-education`}
                 value={profile.education || ""}
                 onChange={(e) => setField("education", e.target.value)}
@@ -1855,7 +1855,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("ఉద్యోగం / హోదా", "Occupation / job title")}:</label>
+              <label htmlFor="me-job" className="font-bold text-slate-800 block mb-1">{T("ఉద్యోగం / హోదా", "Occupation / job title")}:</label>
               <input id={`me-job`}
                 type="text"
                 value={profile.job || ""}
@@ -1865,7 +1865,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("కంపెనీ", "Company / employer")}:</label>
+              <label htmlFor="me-company" className="font-bold text-slate-800 block mb-1">{T("కంపెనీ", "Company / employer")}:</label>
               <input id={`me-company`}
                 type="text"
                 value={profile.company || ""}
@@ -1875,7 +1875,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("వార్షిక వేతనం", "Annual salary")}:</label>
+              <label htmlFor="me-salary" className="font-bold text-slate-800 block mb-1">{T("వార్షిక వేతనం", "Annual salary")}:</label>
               <select id={`me-salary`}
                 value={profile.salary || ""}
                 onChange={(e) => setField("salary", e.target.value)}
@@ -1890,7 +1890,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("పని చేసే నగరం", "Work location")}:</label>
+              <label htmlFor="me-work_location" className="font-bold text-slate-800 block mb-1">{T("పని చేసే నగరం", "Work location")}:</label>
               <input id={`me-work_location`}
                 type="text"
                 value={profile.work_location || ""}
@@ -1900,7 +1900,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("జిల్లా", "District")}:</label>
+              <label htmlFor="me-district" className="font-bold text-slate-800 block mb-1">{T("జిల్లా", "District")}:</label>
               <input id={`me-district`}
                 type="text"
                 value={profile.district || ""}
@@ -1919,7 +1919,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("తండ్రి పేరు & వృత్తి", "Father’s name and occupation")}:</label>
+              <label htmlFor="me-father_name" className="font-bold text-slate-800 block mb-1">{T("తండ్రి పేరు & వృత్తి", "Father’s name and occupation")}:</label>
               <input id={`me-father_name`}
                 type="text"
                 value={profile.father_name || ""}
@@ -1933,7 +1933,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <input id="me-father_occupation" type="text" maxLength={60} value={profile.father_occupation || ""} onChange={(e) => setField("father_occupation", e.target.value)} className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-maroon" />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("తల్లి పేరు & వృత్తి", "Mother’s name and occupation")}:</label>
+              <label htmlFor="me-mother_name" className="font-bold text-slate-800 block mb-1">{T("తల్లి పేరు & వృత్తి", "Mother’s name and occupation")}:</label>
               <input id={`me-mother_name`}
                 type="text"
                 value={profile.mother_name || ""}
@@ -1943,7 +1943,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("సొంత ఊరు", "Native place")}:</label>
+              <label htmlFor="me-native_place" className="font-bold text-slate-800 block mb-1">{T("సొంత ఊరు", "Native place")}:</label>
               <input id={`me-native_place`}
                 type="text"
                 value={profile.native_place || ""}
@@ -1953,7 +1953,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("అన్నదమ్ములు", "Brothers")}:</label>
+              <label htmlFor="me-brothers" className="font-bold text-slate-800 block mb-1">{T("అన్నదమ్ములు", "Brothers")}:</label>
               <input id={`me-brothers`}
                 type="text"
                 value={profile.brothers ?? ""}
@@ -1963,7 +1963,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("అక్కచెల్లెళ్లు", "Sisters")}:</label>
+              <label htmlFor="me-sisters" className="font-bold text-slate-800 block mb-1">{T("అక్కచెల్లెళ్లు", "Sisters")}:</label>
               <input id={`me-sisters`}
                 type="text"
                 value={profile.sisters ?? ""}
@@ -1973,7 +1973,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("వర్ణం", "Complexion")}:</label>
+              <label htmlFor="me-complexion" className="font-bold text-slate-800 block mb-1">{T("వర్ణం", "Complexion")}:</label>
               <select id={`me-complexion`}
                 value={profile.complexion || ""}
                 onChange={(e) => setField("complexion", e.target.value)}
@@ -1987,7 +1987,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ రకం", "Family type")}:</label>
+              <label htmlFor="me-family_type" className="font-bold text-slate-800 block mb-1">{T("కుటుంబ రకం", "Family type")}:</label>
               <select id={`me-family_type`}
                 value={profile.family_type || ""}
                 onChange={(e) => setField("family_type", e.target.value)}
@@ -1999,7 +1999,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("కుటుంబ స్థాయి", "Family financial status")}:</label>
+              <label htmlFor="me-family_status" className="font-bold text-slate-800 block mb-1">{T("కుటుంబ స్థాయి", "Family financial status")}:</label>
               <select id={`me-family_status`}
                 value={profile.family_status || ""}
                 onChange={(e) => setField("family_status", e.target.value)}
@@ -2012,7 +2012,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-800 block mb-1">{T("మాతృభాష", "Mother tongue")}:</label>
+              <label htmlFor="me-mother_tongue" className="font-bold text-slate-800 block mb-1">{T("మాతృభాష", "Mother tongue")}:</label>
               <input id={`me-mother_tongue`}
                 type="text"
                 value={profile.mother_tongue || ""}
@@ -2075,7 +2075,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               <p className="mt-1 text-[11px] text-slate-500">{T("ఎంచుకుంటే ఇది మీ పబ్లిక్ ప్రొఫైల్‌లో కనిపిస్తుంది; భాగస్వామి ప్రాధాన్యతలతో పోల్చడానికి వాడబడుతుంది.", "If selected, this is shown on your public profile and used to compare against partner preferences.")}</p>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>
+              <label htmlFor="me-expectations" className="font-bold text-slate-800 block mb-1">{T("భాగస్వామి నుంచి కోరుకునేవి", "Partner expectations")}:</label>
               <textarea id={`me-expectations`}
                 rows={2}
                 value={profile.expectations || ""}
@@ -2094,7 +2094,7 @@ function EditProfilePanel({ myId }: { myId: string }) {
               </div>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="font-bold text-slate-800 block mb-1">{T("నా గురించి", "About me")}:</label>
+              <label htmlFor="me-about_myself" className="font-bold text-slate-800 block mb-1">{T("నా గురించి", "About me")}:</label>
               <textarea id={`me-about_myself`}
                 rows={3}
                 value={profile.about_myself || ""}
