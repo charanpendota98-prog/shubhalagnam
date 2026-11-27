@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "@/components/LocaleLink";
 import { apiDisplayMessage, apiGet } from "@/lib/api";
+import { isExplicitTrue } from "@/lib/explicit-truth.mjs";
 import { firstName } from "@/lib/names";
 import { useLang } from "@/lib/lang";
 
@@ -56,7 +57,7 @@ export default function TopPicks() {
             <div className="flex min-h-5 items-center gap-2">
               {r.boosted ? <span className="text-[11px]" title={te ? "ప్రమోట్ చేసిన ప్రొఫైల్" : "Promoted profile"}>📣</span> : null}
               {r.has_voice ? <span className="text-[11px]" title={te ? "వాయిస్ పరిచయం ఉంది" : "Voice introduction available"}>🎙️</span> : null}
-              {r.is_nri ? <span className="text-[11px]" title={te ? "సభ్యుడు తెలిపిన విదేశీ స్థానం" : "Listed overseas location"}>✈️</span> : null}
+              {isExplicitTrue(r.is_nri) ? <span className="text-[11px]" title={te ? "సభ్యుడు తెలిపిన విదేశీ స్థానం" : "Listed overseas location"}>✈️</span> : null}
             </div>
             <p className="mt-1 truncate text-[13px] font-bold">{firstName(r.full_name) === "—" ? r.tsap_id : firstName(r.full_name)}{r.age ? ` • ${r.age}y` : ""}</p>
             <p className="truncate text-[11px] text-gray-600">{terms.join(" • ")}</p>

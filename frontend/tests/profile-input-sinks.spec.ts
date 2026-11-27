@@ -55,11 +55,21 @@ for(const lang of ['en','te'])test(`legacy profile markup stays inert in view an
  expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
 });
 
-// A hostile legacy flag can only choose a fixed badge, never become markup.
+// Hostile legacy flags must not select a badge after the profile has rendered.
 for(const lang of ['en','te'])test(`hostile legacy is_nri is never interpolated ${lang}`,async({page})=>{
  await page.addInitScript(()=>{(window as any).__profileXss=0});
  await page.route('**/api/**',r=>r.fulfill({json:new URL(r.request().url()).pathname===`/api/search/${id}`?{profile:{...profile,is_nri:attack,country:'USA'}}:{success:true,items:[],valid:false}}));
  await page.goto((lang==='en'?'/en':'')+`/search/${id}`);
- const badge=page.locator('span').filter({hasText:/^✈️ NRI/});await expect(badge).toHaveText('✈️ NRI • USA');
- await expect(badge.locator('img,script,[onerror]')).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
+ await expect(page.getByRole('heading',{name:'Fictional',exact:true})).toBeVisible();
+ const badge=page.locator('span').filter({hasText:/^✈️ NRI/});await expect(badge).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).__profileXss)).toBe(0);
+});
+
+for(const lang of ['en','te'])test(`legacy NRI boolean spellings classify correctly ${lang}`,async({page})=>{
+ let flag:unknown=false;
+ await page.route('**/api/**',r=>r.fulfill({json:new URL(r.request().url()).pathname===`/api/search/${id}`?{profile:{...profile,is_nri:flag,country:'USA'}}:{success:true,items:[],valid:false}}));
+ for(const [value,show] of [[false,false],['false',false],['no',false],['off',false],['0',false],[{},false],[true,true],['YES',true],[' on ',true],['1',true]] as const){
+  flag=value;await page.goto((lang==='en'?'/en':'')+`/search/${id}`);await expect(page.getByRole('heading',{name:'Fictional',exact:true})).toBeVisible();
+  await expect(page.locator('span').filter({hasText:/^✈️ NRI/})).toHaveCount(show?1:0);
+ }
 });
