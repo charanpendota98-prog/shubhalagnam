@@ -25,8 +25,8 @@ def _has_verification_evidence(user: Dict[str, Any]) -> bool:
                 or u.get("photo_status") == "approved" or u.get("id_verified"))
 
 from atomic_store import atomic_json_dump
-from hardening import clean, req_int, req_text, validation_error, is_explicit_true
-from matchpro import detect_nri
+from hardening import clean, req_int, req_text, validation_error
+from matchpro import profile_is_nri
 from models import is_never_married_status
 
 STATE_DIR = os.environ.get("MANA_VIVAHA_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
@@ -601,10 +601,7 @@ def matches_filters(user: Dict[str, Any], filters: Dict[str, Any]) -> bool:
                 or u.get("privacy_mode") == "private" or not has_photo):
             return False
     if f.get("nri_only"):
-        nri = is_explicit_true(u.get("is_nri")) or bool(detect_nri(
-            str(u.get("country") or ""), str(u.get("work_location") or ""),
-            str(u.get("current_city") or ""), str(u.get("state") or ""),
-        ).get("is_nri"))
+        nri = profile_is_nri(u)
         if not nri:
             return False
 

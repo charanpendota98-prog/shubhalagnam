@@ -24,7 +24,7 @@ class NriTruth(unittest.TestCase):
   values=[True,False,1,0,1.0,2,None,{},[],['yes'],'true',' TRUE ','yes','on','Y','1','false','no','off','N','0','', '\ufefftrue\ufeff','\x85true\x85','\x1ctrue\x1c','ＴＲＵＥ','<img src=x onerror=alert(1)>']
   for value in values:
    expected=hardening.is_explicit_true(value)
-   with self.subTest(value=value),patch.object(main.MP,'detect_nri',return_value={'is_nri':False}),patch.object(quality,'detect_nri',return_value={'is_nri':False}),patch.object(channels_config,'is_public_channel',return_value=True),patch.object(channels_config,'channel_chat_id',return_value='@fictional_test'):
+   with self.subTest(value=value),patch.object(main.MP,'detect_nri',return_value={'is_nri':False}),patch.object(channels_config,'is_public_channel',return_value=True),patch.object(channels_config,'channel_chat_id',return_value='@fictional_test'):
     user={'tsap_id':'FICTIONAL-NRI','status':'approved','age':29,'state':'TS','country':'India','is_nri':value}
     self.assertEqual(main._is_nri(user),expected)
     self.assertEqual(quality.matches_filters(user,{'nri_only':True}),expected)
@@ -33,6 +33,25 @@ class NriTruth(unittest.TestCase):
     try:self.assertEqual(bool(conn.execute('SELECT is_nri FROM search_projection').fetchone()[0]),expected)
     finally:conn.close()
     self.assertEqual('nri_global' in channels_config.route_profile(user,max_posts=100)['keys'],expected)
+ def test_location_evidence_agrees_across_readers(self):
+  cases=[({'country':None,'state':'TS'},False),({'country':'USA','state':'TS','is_nri':False},True),({'country':'India','work_location':'London','state':'TS'},False),({'country':'','work_location':'London','state':'AP','is_nri':'no'},True),({'current_city':'Dubai','state':'TS'},True),({'country':'India','state':'TS'},False),({'state':'TS','is_nri':'no'},False),({'country':'bharat','work_location':'London','state':'TS'},False)]
+  for fields,expected in cases:
+   with self.subTest(fields=fields),patch.object(channels_config,'is_public_channel',return_value=True),patch.object(channels_config,'channel_chat_id',return_value='@fictional_test'):
+    user={'tsap_id':'FICTIONAL-NRI','status':'approved','age':29,**fields}
+    self.assertEqual(main._is_nri(user),expected)
+    self.assertEqual(quality.matches_filters(user,{'nri_only':True}),expected)
+    enterprise_sql.rebuild_search_projection([user],lambda _: (0,0))
+    conn=enterprise_sql.IDENTITY_REPO._connect()
+    try:self.assertEqual(bool(conn.execute('SELECT is_nri FROM search_projection').fetchone()[0]),expected)
+    finally:conn.close()
+    self.assertEqual(enterprise_sql.query_indexed_search_v2(nri_only=True)['total'],int(expected))
+    self.assertEqual('nri_global' in channels_config.route_profile(user,max_posts=100)['keys'],expected)
+ def test_channel_category_exceptions_are_not_residency(self):
+  for fields in [{'state':'Karnataka','country':'India'},{'state':'TS','country':'India','wants_nri':True}]:
+   with self.subTest(fields=fields),patch.object(channels_config,'is_public_channel',return_value=True),patch.object(channels_config,'channel_chat_id',return_value='@fictional_test'):
+    self.assertFalse(main._is_nri(fields))
+    self.assertFalse(quality.matches_filters(fields,{'nri_only':True}))
+    self.assertIn('nri_global',channels_config.route_profile(fields,max_posts=100)['keys'])
  def test_float_boundary_and_unicode(self):
   self.assertFalse(hardening.is_explicit_true(1.0))
   with self.assertRaises(Exception):hardening.req_bool_strict(1.0,'is_nri')

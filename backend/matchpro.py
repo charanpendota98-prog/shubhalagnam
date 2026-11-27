@@ -6,6 +6,7 @@ profiles must use saved member preferences and actual recency only.
 from __future__ import annotations
 
 from datetime import date
+from hardening import is_explicit_true
 from typing import Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
@@ -141,6 +142,15 @@ def detect_nri(country: str = "", work_location: str = "", current_city: str = "
     if hit:
         return {"is_nri": True, "country": "", "via": f"member_location:{hit}"}
     return {"is_nri": False, "country": "", "via": "unknown"}
+
+
+def profile_is_nri(profile: Dict) -> bool:
+    """One residency classifier for stored flags and existing location evidence."""
+    u = profile or {}
+    return is_explicit_true(u.get("is_nri")) or bool(detect_nri(
+        str(u.get("country") or ""), str(u.get("work_location") or ""),
+        str(u.get("current_city") or ""), str(u.get("state") or ""),
+    ).get("is_nri"))
 
 
 # ---------------------------------------------------------------------------

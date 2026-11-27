@@ -27,7 +27,7 @@ import os
 import re
 from typing import Dict, List
 from urllib.parse import urlparse
-from hardening import is_explicit_true
+from matchpro import profile_is_nri
 
 def _configured_bot_username() -> str:
     """Return only an explicitly configured Telegram bot username; never guess one."""
@@ -879,9 +879,9 @@ def route_profile(profile: dict, max_posts: int = MAX_POSTS) -> dict:
     if _flag_job(job + " " + education, BLOCK_DOCTOR) or _flag_job(job, BLOCK_TEACHER):
         ordered.append(("doctors_teachers", "occupation_category"))
 
-    wants_nri = enabled(profile.get("wants_nri")) or is_explicit_true(profile.get("is_nri"))
-    if wants_nri and state != "Other":
-        ordered.append(("nri_global", "member_selected_nri_category"))
+    wants_nri = enabled(profile.get("wants_nri"))
+    if (wants_nri or profile_is_nri(profile)) and state != "Other":
+        ordered.append(("nri_global", "member_selected_nri_category" if wants_nri else "member_provided_overseas_location"))
 
     seen, keys, reasons = set(), [], []
     for key, why in ordered:
