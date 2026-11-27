@@ -27,7 +27,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ Minimum age is 21 for this profile",
+      "detail": "Minimum age is 21 for this profile.",
       "detail_en": "Minimum age is 21 for this profile.",
       "detail_te": "ఈ ప్రొఫైల్‌కు కనీస వయస్సు 21 సంవత్సరాలు."
     }
@@ -61,7 +61,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ district సరిగ్గా ఇవ్వండి (2-80 characters)",
+      "detail": "Choose a valid value for district.",
       "detail_en": "Choose a valid value for district.",
       "detail_te": "జిల్లా: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -72,7 +72,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ state కి 'BAD' valid కాదు — ఇవి మాత్రమే: TS, AP, Other",
+      "detail": "Choose a valid value for state.",
       "detail_en": "Choose a valid value for state.",
       "detail_te": "రాష్ట్రం: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -83,7 +83,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ children కి 'BAD' valid కాదు — ఇవి మాత్రమే: None, 1, 2, 3, 4+",
+      "detail": "Choose a valid value for number of children.",
       "detail_en": "Choose a valid value for number of children.",
       "detail_te": "పిల్లల సంఖ్య: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -94,7 +94,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ profile_for కి 'BAD' valid కాదు — ఇవి మాత్రమే: Self, Parents",
+      "detail": "Choose a valid value for who this profile is for.",
       "detail_en": "Choose a valid value for who this profile is for.",
       "detail_te": "ప్రొఫైల్ ఎవరి కోసం: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -105,7 +105,7 @@
     },
     "error": {
       "success": false,
-      "detail": "⚠️ diet కి 'BAD' valid కాదు — ఇవి మాత్రమే: Vegetarian, Non-Vegetarian",
+      "detail": "Choose a valid value for diet.",
       "detail_en": "Choose a valid value for diet.",
       "detail_te": "ఆహారపు అలవాటు: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -116,7 +116,7 @@
     },
     "error": {
       "success": false,
-      "detail": "photo_private must be a boolean",
+      "detail": "Choose a valid value for photo privacy.",
       "detail_en": "Choose a valid value for photo privacy.",
       "detail_te": "ఫోటో గోప్యత: సరైన ఎంపికను ఎంచుకోండి."
     }
@@ -127,7 +127,7 @@
     },
     "error": {
       "success": false,
-      "detail": "🔒 మీ account కి login చెయ్యండి — ఫోన్ నంబర్ మరియు పాస్‌వర్డ్ (OTP ఉపయోగించబడదు). Token లేకపోతే ఈ data చూడలేరు.",
+      "detail": "Log in to your own account to edit this profile.",
       "detail_en": "Log in to your own account to edit this profile.",
       "detail_te": "ఈ ప్రొఫైల్ మార్చడానికి మీ సొంత ఖాతాలోకి ప్రవేశించండి."
     }
@@ -138,7 +138,7 @@
     },
     "error": {
       "success": false,
-      "detail": "Profile ABSENT not found",
+      "detail": "Profile not found.",
       "detail_en": "Profile not found.",
       "detail_te": "ప్రొఫైల్ కనిపించలేదు."
     }

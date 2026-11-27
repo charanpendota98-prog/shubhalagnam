@@ -24,3 +24,12 @@ No executable rendering sink for these six text fields and boolean field was con
 ## Bounds
 
 This is a focused audit, not a claim that every unrelated route, SVG generator, PDF component or third-party library is free of injection bugs. Broader data/auth/payment review follows separately. No schema, religion policy, rewards, paid-checkout mode or dependency change is included.
+
+
+## Nonblank-to-empty update protection (PR224)
+
+Profile updates prepare cleaned free-text values locally before any shared-record assignment. A nonblank submitted value that the existing cleaner erases entirely returns a curated English and romanized Telugu 400 response. The whole update is rejected, with no partial or temporary record writes, persistence or card generation. Explicit empty/whitespace strings remain the clear operation; null/omitted optional text remains no-op. Required location validation is unchanged: an explicit null district is still rejected before cleaning. Readable text inside ordinary formatting tags still follows the existing cleaner. Limits, global clean(), registration semantics and code-point truncation remain unchanged. No historical record rewrite occurs.
+
+Tests cover the six previously omitted fields plus name/about/country, markup/control/protocol-only values, both payload orders, exact no-echo locale errors, deliberate clearing, null, readable Telugu/formatting, and checkpoint rollback. Grapheme-safe caps remain a separate design task, not part of this change. The current cleaner removes individual tags, not entire script contents; output escaping remains required.
+
+The profile-update error formatter has one endpoint caller. It now preserves detail only for exact server-owned known literals; dynamic or unknown detail is replaced with curated English text, so submitted choices cannot leak through the legacy detail field. Status and exception headers are preserved. Exact-wire frontend fixtures are refreshed deliberately. This does not change shared validators or errors on other endpoints.

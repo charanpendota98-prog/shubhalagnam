@@ -125,6 +125,61 @@ class ProfileInputCoverage(unittest.TestCase):
                 self.assertEqual(writes, [], 'Validation must precede even temporary record writes')
                 persist.assert_not_called()
 
+    def test_nonblank_erased_text_rejected_before_any_record_write(self):
+        class TrackedRow(dict):
+            def __deepcopy__(self, memo):
+                return copy.deepcopy(dict(self), memo)
+            def __setitem__(self, key, value):
+                writes.append((key, value))
+                super().__setitem__(key, value)
+        for field in [*TEXT_LIMITS, 'full_name', 'about_myself', 'country', 'diet']:
+            for value in ['<b></b>', '<img src=x onerror=alert(1)>', '\x00\x01', 'javascript:']:
+                fields = {'job': 'Must Not Stick', field: value, 'is_nri': True}
+                for body in (fields, dict(reversed(list(fields.items())))):
+                    with self.subTest(field=field, value=value, order=list(body)):
+                        writes = []
+                        row = TrackedRow(self.row)
+                        main.DB_USERS[:] = [row]
+                        main._USERS_ID_MAP.clear()
+                        before = copy.deepcopy(dict(row))
+                        with patch.object(main, '_persist_core_state') as persist, patch.object(main, '_regenerate_profile_card') as card:
+                            response = self.post(body)
+                        self.assertEqual(response.status_code, 400, response.text)
+                        self.assertEqual(response.json()['detail_en'], 'Enter readable text, or leave the field blank to clear it.')
+                        self.assertEqual(response.json()['detail_te'], 'Chadavagalige vivaralu rayandi. Aa vivaram teeseyalante khaali ga vadileyandi.')
+                        self.assertNotIn(value, str(response.json()))
+                        self.assertEqual(dict(row), before)
+                        self.assertEqual(writes, [])
+                        persist.assert_not_called()
+                        card.assert_not_called()
+
+    def test_deliberate_clear_null_and_readable_markup_contract(self):
+        for value in ['', '   ', '\t\n']:
+            with self.subTest(value=value), patch.object(main, '_persist_core_state', return_value=True):
+                self.row['weight'] = '55 kg'
+                response = self.post({'weight': value})
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(self.row['weight'], '')
+        for value, expected in [(None, '55 kg'), ('<b>55 kg</b>', '55 kg'), ('ఉదయం', 'ఉదయం')]:
+            with self.subTest(value=value), patch.object(main, '_persist_core_state', return_value=True):
+                self.row['weight'] = '55 kg'
+                response = self.post({'weight': value})
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(self.row['weight'], expected)
+        before = copy.deepcopy(self.row)
+        with patch.object(main, '_persist_core_state', return_value=False), patch.object(main, '_regenerate_profile_card', return_value=True):
+            response = self.post({'weight': '<b>60 kg</b>'})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.row, before)
+
+    def test_required_district_null_is_still_rejected(self):
+        before = copy.deepcopy(self.row)
+        with patch.object(main, '_persist_core_state') as persist:
+            response = self.post({'district': None})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.row, before)
+        persist.assert_not_called()
+
     def test_is_nri_never_temporarily_stores_a_raw_value(self):
         writes = []
         class TrackedRow(dict):

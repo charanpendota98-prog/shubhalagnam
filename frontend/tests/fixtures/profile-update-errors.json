@@ -7,7 +7,7 @@
   },
   "district400": {
     "success": false,
-    "detail": "⚠️ district సరిగ్గా ఇవ్వండి (2-80 characters)",
+    "detail": "Choose a valid value for district.",
     "detail_en": "Choose a valid value for district.",
     "detail_te": "జిల్లా: సరైన ఎంపికను ఎంచుకోండి."
   },

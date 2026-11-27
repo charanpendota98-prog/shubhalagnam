@@ -4489,6 +4489,7 @@ def _profile_update_error(detail: Any, status: int) -> dict:
     """Add display-only locale fields without echoing submitted values or changing rules."""
     en, te = "Profile changes could not be saved. Please try again.", "ప్రొఫైల్ మార్పులను సేవ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."
     known = {
+        "Profile text was empty after cleaning": ("Enter readable text, or leave the field blank to clear it.", "Chadavagalige vivaralu rayandi. Aa vivaram teeseyalante khaali ga vadileyandi."),
         "Enter a valid date of birth in YYYY-MM-DD format": ("Enter a valid date of birth in YYYY-MM-DD format.", "పుట్టిన తేదీని సంవత్సరం-నెల-రోజు రూపంలో సరిగ్గా నమోదు చేయండి."),
         "🎂 Date of birth cannot be in the future": ("Date of birth cannot be in the future.", "పుట్టిన తేదీ భవిష్యత్తులో ఉండకూడదు."),
         "Enter a valid date of birth": ("Enter a valid date of birth.", "సరైన పుట్టిన తేదీని నమోదు చేయండి."),
@@ -4522,7 +4523,10 @@ def _profile_update_error(detail: Any, status: int) -> dict:
                 if detail.startswith((f"⚠️ {field} ", f"{field} must be a boolean")):
                     en, te = f"Choose a valid value for {label_en}.", f"{label_te}: సరైన ఎంపికను ఎంచుకోండి."
                     break
-    return {"success": False, "detail": detail, "detail_en": en, "detail_te": te}
+    # Only exact server-owned literals may keep their legacy detail. Dynamic
+    # validator messages can contain submitted values, even when display is safe.
+    safe_detail = detail if isinstance(detail, str) and (detail in known or detail == _GROOM_HOMEMAKER_DETAIL) else en
+    return {"success": False, "detail": safe_detail, "detail_en": en, "detail_te": te}
 
 
 @app.post("/api/profile/update")
@@ -4589,9 +4593,33 @@ def _update_user_profile(payload: dict, request: Request):
     diet_update = None
     if "diet" in payload and payload["diet"] is not None:
         diet_update = req_choice(payload["diet"], "diet", ["Vegetarian", "Non-Vegetarian"], required=False, default="")
+    # Clean into a local proposal before any shared-record assignment. A deliberate
+    # blank clears optional text; nonblank text erased by cleaning is a mistake.
+    _free_text_max = {
+        "birth_time": 30, "weight": 20, "brothers": 20, "sisters": 20,
+        "exp_age_min": 3, "exp_age_max": 3,
+        "full_name": 60, "height": 12, "marital_status": 30, "caste": 40, "sub_caste": 40,
+        "gothram": 40, "star": 30, "rasi": 30, "dosham": 30, "education": 60, "education_detail": 120,
+        "job": 60, "company": 80, "salary": 24, "work_type": 40, "work_location": 60,
+        "father_name": 60, "father_occupation": 60, "mother_name": 60, "mother_occupation": 60,
+        "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
+        "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
+        "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
+        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "profile_for": 20, "diet": 20,
+        "country": 60,
+        "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
+    }
+    cleaned_text = {}
+    for key, limit in _free_text_max.items():
+        if key not in payload or payload[key] is None:
+            continue
+        cleaned = clean(payload[key], limit, "profile_update:" + key)
+        if str(payload[key]).strip() and not cleaned:
+            raise HTTPException(400, "Profile text was empty after cleaning")
+        cleaned_text[key] = cleaned
     for k in updatable_fields:
         if k in payload and payload[k] is not None and k not in {"photo_private", "is_nri"}:
-            user[k] = payload[k]
+            user[k] = cleaned_text[k] if k in cleaned_text else payload[k]
     _marital_after = payload.get("marital_status") if payload.get("marital_status") is not None else user.get("marital_status")
     if is_never_married_status(_marital_after):
         user["children"] = ""   # children is only meaningful after a previous marriage
@@ -4611,36 +4639,6 @@ def _update_user_profile(payload: dict, request: Request):
     # whichever client sends the update. Existing stored values are left alone so
     # a member with older data can always come back and correct it.
     _reject_groom_homemaker(user.get("gender"), payload.get("job"), payload.get("work_type"))
-
-    # 🛡️ P0 FIX (Phase 13): registration already runs every free-text field
-    # through clean() (strips HTML tags + javascript:/onerror=/<script
-    # patterns — see "register:" sanitize loop above) but THIS endpoint was
-    # setting fields straight from payload with zero sanitization, so a
-    # logged-in user could set e.g. about_myself="<script>...</script>" on
-    # their OWN profile (no IDOR needed — require_owner already gates this
-    # to the owner) and have it persist raw. Any other visitor who later
-    # viewed that profile and used a raw-HTML code path (e.g. the
-    # printBiodata() document.write() bug fixed this same pass) would then
-    # run the attacker's script. Close the gap at the source too: sanitize
-    # the same way registration does, for every free-text field this
-    # endpoint allows updating.
-    _free_text_max = {
-        "birth_time": 30, "weight": 20, "brothers": 20, "sisters": 20,
-        "exp_age_min": 3, "exp_age_max": 3,
-        "full_name": 60, "height": 12, "marital_status": 30, "caste": 40, "sub_caste": 40,
-        "gothram": 40, "star": 30, "rasi": 30, "dosham": 30, "education": 60, "education_detail": 120,
-        "job": 60, "company": 80, "salary": 24, "work_type": 40, "work_location": 60,
-        "father_name": 60, "father_occupation": 60, "mother_name": 60, "mother_occupation": 60,
-        "native_place": 60, "district": 40, "mandal": 40, "current_city": 40,
-        "about_myself": 600, "expectations": 400, "exp_caste": 40, "exp_education": 60,
-        "exp_job": 60, "exp_location": 60, "exp_salary": 24, "family_type": 30, "family_status": 40,
-        "family_values": 40, "mother_tongue": 30, "physical_status": 40, "profile_for": 20, "diet": 20,
-        "country": 60,
-        "citizenship": 40, "visa_status": 40, "blood_group": 8, "complexion": 30, "body_type": 30,
-    }
-    for _k, _n in _free_text_max.items():
-        if _k in payload and payload[_k] is not None and _k in user:
-            user[_k] = clean(user.get(_k), _n, "profile_update:" + _k)
 
     if profile_for_update is not None:
         user["profile_for"] = profile_for_update
