@@ -111,14 +111,14 @@ export default function OwnerPage() {
         credentials: "same-origin",
         headers: authRequestHeaders(),
       });
-      if (!r.ok) { setBmsg(te ? "❌ Backup fail — owner session లేదా key check cheyandi" : "❌ Backup failed — verify owner session"); setBbusy(false); return; }
+      if (!r.ok) { setBmsg(te ? "బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "Backup could not be downloaded. Retry."); setBbusy(false); return; }
       const blob = await r.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "mana-vivaha-backup.zip";
       a.click();
-      setBmsg(te ? "✅ Backup download ayindi — safe ga dachukondi" : "✅ Backup downloaded — keep it safe");
-    } catch { setBmsg("❌ Network problem"); }
+      setBmsg(te ? "బ్యాకప్ డౌన్‌లోడ్ ప్రారంభించాం. ఫైల్ సేవ్ అయిందో చూసి, భద్రంగా ఉంచండి." : "Backup download started. Check that the file was saved and keep it safe.");
+    } catch { setBmsg(te ? "నెట్‌వర్క్ సమస్య వల్ల బ్యాకప్ తీసుకోలేకపోయాం. మళ్లీ ప్రయత్నించండి." : "A network problem prevented the backup download. Retry."); }
     setBbusy(false);
   }, [authRequestHeaders, te]);
 
