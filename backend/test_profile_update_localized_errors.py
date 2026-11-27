@@ -5,7 +5,7 @@ import os
 import pathlib
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 os.environ['APP_ENV'] = 'test'
 os.environ['ENV'] = 'test'
 os.environ['TSAP_AUTH_MODE'] = 'enforce'
@@ -41,11 +41,33 @@ class LocaleErrors(unittest.TestCase):
         self.assertFalse(any('\u0c00' <= c <= '\u0c7f' for c in d['detail_en']))
         self.assertTrue(any('\u0c00' <= c <= '\u0c7f' for c in d['detail_te']))
         for value in getattr(self, 'submitted', []):
-            self.assertNotIn(value, d['detail_en'])
-            self.assertNotIn(value, d['detail_te'])
-            self.assertNotIn(value, str(d))
+            self.assertNotIn(value.casefold(), d['detail_en'].casefold())
+            self.assertNotIn(value.casefold(), d['detail_te'].casefold())
+            self.assertNotIn(value.casefold(), str(d).casefold())
         self.assertEqual(self.row, self.before)
         return d
+
+    def test_no_echo_guard_rejects_case_transformed_values(self):
+        # Test the guard itself, independent of the frozen wire fixtures.
+        for submitted, echoed in [('PRIVATE-VALUE', 'private-value'),
+                                   ('private-value', 'PRIVATE-VALUE'),
+                                   ('Private-Value', 'pRiVaTe-vAlUe'),
+                                   ('Straße-private', 'STRASSE-PRIVATE')]:
+            for field in ('detail_en', 'detail_te', 'detail'):
+                with self.subTest(submitted=submitted, field=field):
+                    self.submitted = [submitted]
+                    payload = {'success': False, 'detail_en': 'Invalid input.',
+                               'detail_te': 'చెల్లని సమాచారం.', 'detail': 'Invalid input.'}
+                    payload[field] += ' ' + echoed
+                    response = Mock(status_code=400, text='fictional guard probe')
+                    response.json.return_value = payload
+                    with self.assertRaises(AssertionError):
+                        self.assert_error(response, 400)
+        # A genuinely unrelated curated error must still pass the guard.
+        self.submitted = ['PRIVATE-VALUE']
+        response.json.return_value = {'success': False, 'detail_en': 'Invalid input.',
+                                      'detail_te': 'చెల్లని సమాచారం.', 'detail': 'Invalid input.'}
+        self.assert_error(response, 400)
 
     def test_validation_and_ownership(self):
         cases = [({'dob': 'not-a-date'}, 400), ({'dob': '2099-01-01'}, 400),
