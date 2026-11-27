@@ -132,7 +132,7 @@ class ProfileInputCoverage(unittest.TestCase):
             def __setitem__(self, key, value):
                 writes.append((key, value))
                 super().__setitem__(key, value)
-        for field in [*TEXT_LIMITS, 'full_name', 'about_myself', 'country']:
+        for field in [*TEXT_LIMITS, 'full_name', 'about_myself', 'country', 'diet']:
             for value in ['<b></b>', '<img src=x onerror=alert(1)>', '\x00\x01', 'javascript:']:
                 fields = {'job': 'Must Not Stick', field: value, 'is_nri': True}
                 for body in (fields, dict(reversed(list(fields.items())))):
@@ -171,6 +171,14 @@ class ProfileInputCoverage(unittest.TestCase):
             response = self.post({'weight': '<b>60 kg</b>'})
         self.assertEqual(response.status_code, 503)
         self.assertEqual(self.row, before)
+
+    def test_required_district_null_is_still_rejected(self):
+        before = copy.deepcopy(self.row)
+        with patch.object(main, '_persist_core_state') as persist:
+            response = self.post({'district': None})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.row, before)
+        persist.assert_not_called()
 
     def test_is_nri_never_temporarily_stores_a_raw_value(self):
         writes = []

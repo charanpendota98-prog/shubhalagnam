@@ -4523,7 +4523,10 @@ def _profile_update_error(detail: Any, status: int) -> dict:
                 if detail.startswith((f"⚠️ {field} ", f"{field} must be a boolean")):
                     en, te = f"Choose a valid value for {label_en}.", f"{label_te}: సరైన ఎంపికను ఎంచుకోండి."
                     break
-    return {"success": False, "detail": detail, "detail_en": en, "detail_te": te}
+    # Only exact server-owned literals may keep their legacy detail. Dynamic
+    # validator messages can contain submitted values, even when display is safe.
+    safe_detail = detail if isinstance(detail, str) and (detail in known or detail == _GROOM_HOMEMAKER_DETAIL) else en
+    return {"success": False, "detail": safe_detail, "detail_en": en, "detail_te": te}
 
 
 @app.post("/api/profile/update")

@@ -43,6 +43,7 @@ class LocaleErrors(unittest.TestCase):
         for value in getattr(self, 'submitted', []):
             self.assertNotIn(value, d['detail_en'])
             self.assertNotIn(value, d['detail_te'])
+            self.assertNotIn(value, str(d))
         self.assertEqual(self.row, self.before)
         return d
 
@@ -89,10 +90,20 @@ class LocaleErrors(unittest.TestCase):
         with patch.object(main, '_update_user_profile', side_effect=main.HTTPException(418, detail, headers={'Retry-After': '42'})):
             response = self.post({'job': secret})
         d = self.assert_error(response, 418)
-        self.assertEqual(d['detail'], detail)
+        self.assertEqual(d['detail'], d['detail_en'])
+        self.assertNotIn(secret, str(d))
         self.assertEqual(response.headers['retry-after'], '42')
         self.assertEqual(d['detail_en'], 'Profile changes could not be saved. Please try again.')
         self.assertEqual(d['detail_te'], 'ప్రొఫైల్ మార్పులను సేవ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.')
+
+    def test_invalid_choice_detail_never_echoes_submitted_value(self):
+        for field in ['diet', 'profile_for', 'children', 'state', 'photo_private', 'is_nri']:
+            with self.subTest(field=field):
+                secret = 'PRIVATE-SUBMITTED-VALUE-8241'
+                response = self.post({field: secret})
+                self.assertEqual(response.status_code, 400)
+                self.assertNotIn(secret, str(response.json()))
+                self.assertEqual(self.row, self.before)
 
     def test_bride_and_valid_edits_still_succeed(self):
         self.row['gender'] = 'Bride'
